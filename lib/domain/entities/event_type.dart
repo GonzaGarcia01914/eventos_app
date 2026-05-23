@@ -1,11 +1,12 @@
-/// Categorías de evento para búsqueda y filtros.
+/// Categorias de evento para busqueda y filtros.
 enum EventType {
-  music('Música'),
-  comedy('Comedia'),
-  food('Gastronomía'),
+  music('Musica'),
+  movies('Peliculas'),
+  social('Social'),
+  food('Gastronomia'),
   culture('Cultura'),
   sports('Deportes'),
-  tech('Tecnología'),
+  tech('Tecnologia'),
   nightlife('Vida nocturna'),
   other('Otros');
 

@@ -12,11 +12,11 @@ class MockEventRepository implements EventRepositoryContract {
 
   static final List<({String title, EventType type})> _eventTemplates = [
     (title: 'Festival de Jazz en la Costanera', type: EventType.music),
-    (title: 'Noche de Stand-up Comedy', type: EventType.comedy),
+    (title: 'Noche de Stand-up Comedy', type: EventType.social),
     (title: 'Feria Gastronómica Internacional', type: EventType.food),
     (title: 'Concierto Acústico al Aire Libre', type: EventType.music),
     (title: 'Mercado de Artesanías', type: EventType.culture),
-    (title: 'Maratón de Cine Independiente', type: EventType.culture),
+    (title: 'Maratón de Cine Independiente', type: EventType.movies),
     (title: 'Expo de Tecnología y Startups', type: EventType.tech),
     (title: 'Clase Maestra de Danza', type: EventType.culture),
     (title: 'Tour Nocturno por el Centro Histórico', type: EventType.nightlife),
@@ -85,10 +85,9 @@ class MockEventRepository implements EventRepositoryContract {
     final location = _venues[_random.nextInt(_venues.length)];
     final daysAhead = 1 + _random.nextInt(45);
     final hour = 10 + _random.nextInt(12);
-    final startAt = DateTime.now().add(Duration(days: daysAhead)).copyWith(
-      hour: hour,
-      minute: [0, 30][_random.nextInt(2)],
-    );
+    final startAt = DateTime.now()
+        .add(Duration(days: daysAhead))
+        .copyWith(hour: hour, minute: [0, 30][_random.nextInt(2)]);
     final price = _priceOptions[_random.nextInt(_priceOptions.length)];
 
     final latOffset = (_random.nextDouble() - 0.5) * 0.072;

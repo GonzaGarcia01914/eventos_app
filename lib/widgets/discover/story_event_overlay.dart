@@ -16,7 +16,10 @@ class StoryEventOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat("EEEE d MMM · HH:mm", 'es').format(event.startAt);
+    final dateLabel = DateFormat(
+      "EEEE d MMM · HH:mm",
+      'es',
+    ).format(event.startAt);
 
     return Positioned(
       left: 0,
@@ -27,10 +30,7 @@ class StoryEventOverlay extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withValues(alpha: 0.85),
-            ],
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
           ),
         ),
         child: Padding(
@@ -40,7 +40,10 @@ class StoryEventOverlay extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(10),

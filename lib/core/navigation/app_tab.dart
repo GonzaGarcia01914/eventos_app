@@ -5,7 +5,7 @@ enum AppTab {
   home(Icons.home_rounded, 'Inicio'),
   discover(Icons.explore_rounded, 'Discover'),
   favourites(Icons.favorite_rounded, 'Favoritos'),
-  perfil(Icons.person_rounded, 'Perfil');
+  perfil(Icons.add_circle_rounded, 'Subir');
 
   const AppTab(this.icon, this.label);
 

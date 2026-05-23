@@ -1,9 +1,13 @@
-import 'package:flutter/foundation.dart';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../core/events/event_type_visuals.dart';
 import '../../../data/repositories/favorites_repository.dart';
 import '../../../data/repositories/map_style_repository.dart';
 import '../../../domain/entities/event.dart';
+import '../../../domain/entities/event_type.dart';
 import '../../../domain/repositories/favorites_repository_contract.dart';
 import '../../../domain/repositories/map_style_repository_contract.dart';
 import '../../../presentation/events/events_catalog_view_model.dart';
@@ -13,9 +17,9 @@ class HomeViewModel extends ChangeNotifier {
     required EventsCatalogViewModel eventsCatalog,
     MapStyleRepositoryContract? mapStyleRepository,
     FavoritesRepositoryContract? favoritesRepository,
-  })  : _eventsCatalog = eventsCatalog,
-        _mapStyleRepository = mapStyleRepository ?? const MapStyleRepository(),
-        _favoritesRepository = favoritesRepository ?? FavoritesRepository() {
+  }) : _eventsCatalog = eventsCatalog,
+       _mapStyleRepository = mapStyleRepository ?? const MapStyleRepository(),
+       _favoritesRepository = favoritesRepository ?? FavoritesRepository() {
     _eventsCatalog.addListener(_onCatalogChanged);
   }
 
@@ -27,6 +31,7 @@ class HomeViewModel extends ChangeNotifier {
   bool _isLoadingStyle = true;
 
   Set<Marker> _markers = {};
+  final Map<EventType, BitmapDescriptor> _markerIconCache = {};
 
   Event? _selectedEvent;
   bool _isSelectedFavorite = false;
@@ -45,17 +50,13 @@ class HomeViewModel extends ChangeNotifier {
   bool get hasSelectedEvent => _selectedEvent != null;
 
   Future<void> initialize() async {
-    await Future.wait([
-      _loadMapStyle(),
-      _loadFavoriteIds(),
-    ]);
-    _rebuildMarkers();
+    await Future.wait([_loadMapStyle(), _loadFavoriteIds()]);
+    await _rebuildMarkers();
     notifyListeners();
   }
 
   void _onCatalogChanged() {
     _rebuildMarkers();
-    notifyListeners();
   }
 
   Future<void> _loadMapStyle() async {
@@ -71,17 +72,79 @@ class HomeViewModel extends ChangeNotifier {
       ..addAll(favorites.map((event) => event.id));
   }
 
-  void _rebuildMarkers() {
-    _markers = _eventsCatalog.visibleEvents.map(_buildMarker).toSet();
+  Future<void> _rebuildMarkers() async {
+    final markers = <Marker>{};
+    for (final event in _eventsCatalog.visibleEvents) {
+      markers.add(await _buildMarker(event));
+    }
+
+    _markers = markers;
+    notifyListeners();
   }
 
-  Marker _buildMarker(Event event) {
+  Future<Marker> _buildMarker(Event event) async {
     return Marker(
       markerId: MarkerId(event.id),
       position: LatLng(event.latitude, event.longitude),
+      icon: await _markerIconFor(event.type),
       infoWindow: InfoWindow(title: event.title),
       onTap: () => selectEvent(event),
     );
+  }
+
+  Future<BitmapDescriptor> _markerIconFor(EventType type) async {
+    final cached = _markerIconCache[type];
+    if (cached != null) return cached;
+
+    final icon = await _buildCategoryMarkerIcon(
+      EventTypeVisuals.icon(type),
+      EventTypeVisuals.color(type),
+    );
+    _markerIconCache[type] = icon;
+    return icon;
+  }
+
+  Future<BitmapDescriptor> _buildCategoryMarkerIcon(
+    IconData icon,
+    Color color,
+  ) async {
+    const size = 64.0;
+    const iconSize = 30.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final center = Offset(size / 2, size / 2);
+
+    canvas.drawCircle(
+      center.translate(0, 2),
+      27,
+      Paint()..color = Colors.black.withValues(alpha: 0.28),
+    );
+    canvas.drawCircle(center, 25, Paint()..color = Colors.white);
+    canvas.drawCircle(center, 21, Paint()..color = color);
+
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    textPainter.text = TextSpan(
+      text: String.fromCharCode(icon.codePoint),
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: iconSize,
+        fontFamily: icon.fontFamily,
+        package: icon.fontPackage,
+      ),
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      center - Offset(textPainter.width / 2, textPainter.height / 2),
+    );
+
+    final image = await recorder.endRecording().toImage(
+      size.toInt(),
+      size.toInt(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List());
   }
 
   Future<void> selectEvent(Event event) async {
