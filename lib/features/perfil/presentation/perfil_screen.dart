@@ -623,14 +623,12 @@ class _LocationPickerState extends State<_LocationPicker> {
       _isSearching = true;
       _searchMessage = null;
     });
-    final suggestions = await _placesService.search(query);
+    final result = await _placesService.search(query);
     if (!mounted) return;
     setState(() {
-      _suggestions = suggestions;
+      _suggestions = result.suggestions;
       _isSearching = false;
-      _searchMessage = suggestions.isEmpty
-          ? 'No se encontraron resultados'
-          : null;
+      _searchMessage = result.message;
     });
   }
 
@@ -1131,58 +1129,186 @@ class _GuaraniPriceFormatter extends TextInputFormatter {
 }
 
 class _GooglePlacesService {
-  static const _baseUrl = 'https://maps.googleapis.com/maps/api/place';
+  static const _placesBaseUrl = 'https://places.googleapis.com/v1';
   static const _geocodeUrl =
       'https://maps.googleapis.com/maps/api/geocode/json';
 
-  Future<List<_PlaceSuggestion>> search(String query) async {
-    if (!AppConfig.hasGoogleMapsApiKey) return [];
-
-    final uri = Uri.parse('$_baseUrl/autocomplete/json').replace(
-      queryParameters: {
-        'input': query,
-        'key': AppConfig.googleMapsApiKey,
-        'language': 'es',
-        'components': 'country:py',
-      },
-    );
-
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode != 200) return [];
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final predictions = data['predictions'] as List<dynamic>? ?? [];
-      final placeSuggestions = predictions
-          .map(
-            (item) => _PlaceSuggestion.fromJson(item as Map<String, dynamic>),
-          )
-          .toList();
-      if (placeSuggestions.isNotEmpty) return placeSuggestions;
-
-      return _searchByGeocoding(query);
-    } catch (_) {
-      return _searchByGeocoding(query);
+  Future<_PlaceSearchResult> search(String query) async {
+    if (!AppConfig.hasGoogleMapsApiKey) {
+      return const _PlaceSearchResult(
+        suggestions: [],
+        message: 'Falta GOOGLE_MAPS_API_KEY',
+      );
     }
+
+    final autocomplete = await _searchAutocomplete(query);
+    if (autocomplete.suggestions.isNotEmpty) return autocomplete;
+
+    final textSearch = await _searchByText(query);
+    if (textSearch.suggestions.isNotEmpty) return textSearch;
+
+    final geocoding = await _searchByGeocoding(query);
+    if (geocoding.suggestions.isNotEmpty) return geocoding;
+
+    return _PlaceSearchResult(
+      suggestions: const [],
+      message:
+          autocomplete.message ??
+          textSearch.message ??
+          geocoding.message ??
+          'No se encontraron resultados',
+    );
   }
 
-  Future<List<_PlaceSuggestion>> _searchByGeocoding(String query) async {
+  Future<LatLng?> resolve(String placeId) async {
+    if (!AppConfig.hasGoogleMapsApiKey) return null;
+
+    final placeResource = placeId.startsWith('places/')
+        ? placeId
+        : 'places/$placeId';
+    final data = await _getPlacesJson(
+      Uri.parse('$_placesBaseUrl/$placeResource'),
+      fieldMask: 'location',
+    );
+    if (data == null) return null;
+
+    final location = data['location'] as Map<String, dynamic>?;
+    if (location == null) return null;
+
+    return LatLng(
+      (location['latitude'] as num).toDouble(),
+      (location['longitude'] as num).toDouble(),
+    );
+  }
+
+  Future<_PlaceSearchResult> _searchAutocomplete(String query) async {
+    final data = await _postPlacesJson(
+      Uri.parse('$_placesBaseUrl/places:autocomplete'),
+      fieldMask:
+          'suggestions.placePrediction.placeId,suggestions.placePrediction.text',
+      body: {
+        'input': query,
+        'languageCode': 'es',
+        'includedRegionCodes': ['py'],
+      },
+    );
+    if (data == null) {
+      return const _PlaceSearchResult(
+        suggestions: [],
+        message: 'No se pudo conectar con Google Places',
+      );
+    }
+
+    final errorMessage = _placesErrorMessage(data);
+    if (errorMessage != null) {
+      return _PlaceSearchResult(suggestions: const [], message: errorMessage);
+    }
+
+    final suggestions = data['suggestions'] as List<dynamic>? ?? [];
+    return _PlaceSearchResult(
+      suggestions: suggestions
+          .map((item) {
+            final prediction =
+                (item as Map<String, dynamic>)['placePrediction']
+                    as Map<String, dynamic>?;
+            final text = prediction?['text'] as Map<String, dynamic>?;
+            final description = text?['text'] as String?;
+            final placeId = prediction?['placeId'] as String?;
+            if (description == null || placeId == null) return null;
+
+            return _PlaceSuggestion(placeId: placeId, description: description);
+          })
+          .whereType<_PlaceSuggestion>()
+          .toList(),
+      message: null,
+    );
+  }
+
+  Future<_PlaceSearchResult> _searchByText(String query) async {
+    final data = await _postPlacesJson(
+      Uri.parse('$_placesBaseUrl/places:searchText'),
+      fieldMask:
+          'places.id,places.formattedAddress,places.displayName,places.location',
+      body: {
+        'textQuery': query,
+        'languageCode': 'es',
+        'regionCode': 'PY',
+        'locationBias': {
+          'circle': {
+            'center': {'latitude': -25.2637, 'longitude': -57.5759},
+            'radius': 50000,
+          },
+        },
+      },
+    );
+    if (data == null) {
+      return const _PlaceSearchResult(
+        suggestions: [],
+        message: 'No se pudo conectar con Google Places',
+      );
+    }
+
+    final errorMessage = _placesErrorMessage(data);
+    if (errorMessage != null) {
+      return _PlaceSearchResult(suggestions: const [], message: errorMessage);
+    }
+
+    final places = data['places'] as List<dynamic>? ?? [];
+    return _PlaceSearchResult(
+      suggestions: places
+          .take(5)
+          .map((item) {
+            final json = item as Map<String, dynamic>;
+            final location = json['location'] as Map<String, dynamic>?;
+            if (location == null) return null;
+
+            final displayName = json['displayName'] as Map<String, dynamic>?;
+            return _PlaceSuggestion(
+              placeId: json['id'] as String,
+              description:
+                  json['formattedAddress'] as String? ??
+                  displayName?['text'] as String,
+              location: LatLng(
+                (location['latitude'] as num).toDouble(),
+                (location['longitude'] as num).toDouble(),
+              ),
+            );
+          })
+          .whereType<_PlaceSuggestion>()
+          .toList(),
+      message: null,
+    );
+  }
+
+  Future<_PlaceSearchResult> _searchByGeocoding(String query) async {
     final uri = Uri.parse(_geocodeUrl).replace(
       queryParameters: {
         'address': query,
         'key': AppConfig.googleMapsApiKey,
         'language': 'es',
-        'components': 'country:PY',
+        'region': 'py',
       },
     );
 
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode != 200) return [];
+    final data = await _getJson(uri);
+    if (data == null) {
+      return const _PlaceSearchResult(
+        suggestions: [],
+        message: 'No se pudo conectar con Google Geocoding',
+      );
+    }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final results = data['results'] as List<dynamic>? ?? [];
-      return results
+    final status = data['status'] as String? ?? 'UNKNOWN';
+    if (status != 'OK' && status != 'ZERO_RESULTS') {
+      return _PlaceSearchResult(
+        suggestions: const [],
+        message: _googleStatusMessage(status, data['error_message'] as String?),
+      );
+    }
+
+    final results = data['results'] as List<dynamic>? ?? [];
+    return _PlaceSearchResult(
+      suggestions: results
           .take(5)
           .map((item) {
             final json = item as Map<String, dynamic>;
@@ -1202,42 +1328,102 @@ class _GooglePlacesService {
             );
           })
           .whereType<_PlaceSuggestion>()
-          .toList();
-    } catch (_) {
-      return [];
-    }
+          .toList(),
+      message: null,
+    );
   }
 
-  Future<LatLng?> resolve(String placeId) async {
-    if (!AppConfig.hasGoogleMapsApiKey) return null;
-
-    final uri = Uri.parse('$_baseUrl/details/json').replace(
-      queryParameters: {
-        'place_id': placeId,
-        'key': AppConfig.googleMapsApiKey,
-        'language': 'es',
-        'fields': 'geometry',
-      },
-    );
-
+  Future<Map<String, dynamic>?> _getJson(Uri uri) async {
     try {
       final response = await http.get(uri);
       if (response.statusCode != 200) return null;
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final result = data['result'] as Map<String, dynamic>?;
-      final geometry = result?['geometry'] as Map<String, dynamic>?;
-      final location = geometry?['location'] as Map<String, dynamic>?;
-      if (location == null) return null;
-
-      return LatLng(
-        (location['lat'] as num).toDouble(),
-        (location['lng'] as num).toDouble(),
-      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>?> _getPlacesJson(
+    Uri uri, {
+    required String fieldMask,
+  }) async {
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googleMapsApiKey,
+          'X-Goog-FieldMask': fieldMask,
+        },
+      );
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _postPlacesJson(
+    Uri uri, {
+    required String fieldMask,
+    required Map<String, dynamic> body,
+  }) async {
+    try {
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': AppConfig.googleMapsApiKey,
+          'X-Goog-FieldMask': fieldMask,
+        },
+        body: jsonEncode(body),
+      );
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _placesErrorMessage(Map<String, dynamic> data) {
+    final error = data['error'] as Map<String, dynamic>?;
+    if (error == null) return null;
+
+    final status = error['status'] as String? ?? 'UNKNOWN';
+    final message = error['message'] as String?;
+    return _googleStatusMessage(status, message);
+  }
+
+  String _googleStatusMessage(String status, String? errorMessage) {
+    final normalizedPrefix = switch (status) {
+      'REQUEST_DENIED' || 'PERMISSION_DENIED' => 'Google rechazo la busqueda',
+      'OVER_QUERY_LIMIT' ||
+      'RESOURCE_EXHAUSTED' => 'Se alcanzo el limite de Google Maps',
+      'INVALID_REQUEST' || 'INVALID_ARGUMENT' => 'Busqueda invalida',
+      _ => null,
+    };
+    if (normalizedPrefix != null) {
+      if (errorMessage == null || errorMessage.isEmpty) return normalizedPrefix;
+      return '$normalizedPrefix: $errorMessage';
+    }
+
+    final prefix = switch (status) {
+      'REQUEST_DENIED' => 'Google rechazó la búsqueda',
+      'OVER_QUERY_LIMIT' => 'Se alcanzó el límite de Google Maps',
+      'INVALID_REQUEST' => 'Búsqueda inválida',
+      _ => 'Google Maps respondió $status',
+    };
+
+    if (errorMessage == null || errorMessage.isEmpty) return prefix;
+    return '$prefix: $errorMessage';
+  }
+}
+
+class _PlaceSearchResult {
+  const _PlaceSearchResult({required this.suggestions, required this.message});
+
+  final List<_PlaceSuggestion> suggestions;
+  final String? message;
 }
 
 class _PlaceSuggestion {
@@ -1246,13 +1432,6 @@ class _PlaceSuggestion {
     required this.description,
     this.location,
   });
-
-  factory _PlaceSuggestion.fromJson(Map<String, dynamic> json) {
-    return _PlaceSuggestion(
-      placeId: json['place_id'] as String,
-      description: json['description'] as String,
-    );
-  }
 
   final String placeId;
   final String description;
