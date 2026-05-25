@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../data/repositories/mock_event_repository.dart';
+import '../../data/repositories/evento_repository.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/entities/event_search_filters.dart';
 import '../../domain/repositories/event_repository_contract.dart';
@@ -13,8 +13,9 @@ class EventsCatalogViewModel extends ChangeNotifier {
     FilterEventsUseCase? filterEventsUseCase,
     this.searchLatitude = -25.2637,
     this.searchLongitude = -57.5759,
-  })  : _eventRepository = eventRepository ?? MockEventRepository(),
-        _filterEventsUseCase = filterEventsUseCase ?? const FilterEventsUseCase();
+  }) : _eventRepository = eventRepository ?? EventoRepository(),
+       _filterEventsUseCase =
+           filterEventsUseCase ?? const FilterEventsUseCase();
 
   final EventRepositoryContract _eventRepository;
   final FilterEventsUseCase _filterEventsUseCase;
@@ -33,10 +34,10 @@ class EventsCatalogViewModel extends ChangeNotifier {
 
   List<Event> get allEvents => _allEvents;
   List<Event> get visibleEvents => _filterEventsUseCase(
-        events: _allEvents,
-        query: _searchQuery,
-        filters: _appliedFilters,
-      );
+    events: _allEvents,
+    query: _searchQuery,
+    filters: _appliedFilters,
+  );
   bool get isLoadingEvents => _isLoadingEvents;
   String? get eventsError => _eventsError;
   String get searchQuery => _searchQuery;

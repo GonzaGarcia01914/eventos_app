@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import '../../domain/entities/event.dart';
@@ -82,9 +83,8 @@ class MockEventRepository implements EventRepositoryContract {
   }) {
     final id = 'mock-$index-${_random.nextInt(99999)}';
     final template = _eventTemplates[_random.nextInt(_eventTemplates.length)];
-    final secondaryType = EventType.filterable[_random.nextInt(
-      EventType.filterable.length,
-    )];
+    final secondaryType =
+        EventType.filterable[_random.nextInt(EventType.filterable.length)];
     final types = {
       template.type,
       if (_random.nextBool()) secondaryType,
@@ -117,5 +117,34 @@ class MockEventRepository implements EventRepositoryContract {
       latitude: centerLat + latOffset,
       longitude: centerLng + lngOffset,
     );
+  }
+
+  @override
+  Future<List<Event>> obtenerEventosAprobados() async {
+    return searchNearby(latitude: -25.2637, longitude: -57.5759);
+  }
+
+  @override
+  Future<bool> crearEvento({
+    required String nombre,
+    required String descripcion,
+    required double precio,
+    required List<String> categorias,
+    required String ubicacionMaps,
+    required File fotoOriginal,
+    required String fecha,
+    required String hora,
+  }) async {
+    return true;
+  }
+
+  @override
+  Future<List<Event>> obtenerEventosPendientesAdmin() async {
+    return [];
+  }
+
+  @override
+  Future<bool> aprobarEvento(int idEvento) async {
+    return true;
   }
 }

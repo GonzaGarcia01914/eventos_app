@@ -8,4 +8,7 @@ class AppConfig {
   );
 
   static bool get hasGoogleMapsApiKey => googleMapsApiKey.isNotEmpty;
+
+  static const String backendUrl =
+      'https://backend-eventos.eventospy.workers.dev';
 }

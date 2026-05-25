@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../config/app_config.dart';
 import '../../../core/events/event_type_visuals.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/evento_service.dart';
 import '../../../domain/entities/event_type.dart';
 
 class PerfilScreen extends StatefulWidget {
@@ -27,6 +29,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   final _locationController = TextEditingController();
   final _priceController = TextEditingController();
   final _imagePicker = ImagePicker();
+  final _eventoService = EventoService();
 
   int _currentStep = 0;
   final Set<EventType> _selectedCategories = {EventType.music};
@@ -35,6 +38,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   bool _hasTime = true;
   LatLng _selectedLocation = _initialLocation;
   Uint8List? _coverImageBytes;
+  File? _selectedImageFile;
 
   @override
   void dispose() {
@@ -43,19 +47,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
     _locationController.dispose();
     _priceController.dispose();
     super.dispose();
-  }
-
-  void _goBack() {
-    if (_currentStep == 0) return;
-    setState(() => _currentStep--);
-  }
-
-  void _goNext() {
-    if (_currentStep == 2) {
-      _showCreatedMessage();
-      return;
-    }
-    setState(() => _currentStep++);
   }
 
   Future<void> _pickCoverImage() async {
@@ -68,13 +59,129 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     final bytes = await image.readAsBytes();
     if (!mounted) return;
-    setState(() => _coverImageBytes = bytes);
+    setState(() {
+      _coverImageBytes = bytes;
+      _selectedImageFile = File(image.path);
+    });
   }
 
-  void _showCreatedMessage() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Evento listo para publicar')));
+  void _goBack() {
+    if (_currentStep == 0) return;
+    setState(() => _currentStep--);
+  }
+
+  void _goNext() async {
+    if (_currentStep == 2) {
+      await _crearEvento();
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  Future<void> _crearEvento() async {
+    if (_titleController.text.isEmpty) {
+      _showError('El nombre del evento es requerido');
+      return;
+    }
+
+    if (_selectedImageFile == null) {
+      _showError('Debes seleccionar una imagen para el evento');
+      return;
+    }
+
+    _showLoading();
+
+    try {
+      final success = await _eventoService.crearEvento(
+        nombre: _titleController.text,
+        descripcion: _descriptionController.text,
+        precio: _parsePrecio(_priceController.text),
+        categorias: _selectedCategories.map((e) => e.name).toList(),
+        ubicacionMaps: _locationController.text.isEmpty
+            ? '${_selectedLocation.latitude},${_selectedLocation.longitude}'
+            : _locationController.text,
+        fotoOriginal: _selectedImageFile!,
+        fecha: '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
+        hora: '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (success) {
+        _resetForm();
+        _showSuccess('¡Evento creado exitosamente!');
+        setState(() => _currentStep = 0);
+      } else {
+        _showError('No se pudo crear el evento. Intenta nuevamente.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _showError('Error al crear el evento: ${e.toString()}');
+    }
+  }
+
+  double _parsePrecio(String texto) {
+    final digits = texto.replaceAll(RegExp(r'[^0-9]'), '');
+    return digits.isEmpty ? 0.0 : double.parse(digits);
+  }
+
+  void _resetForm() {
+    _titleController.clear();
+    _descriptionController.clear();
+    _locationController.clear();
+    _priceController.clear();
+    _coverImageBytes = null;
+    _selectedImageFile = null;
+    _selectedCategories.clear();
+    _selectedCategories.add(EventType.music);
+    _selectedDate = DateTime.now().add(const Duration(days: 1));
+    _selectedTime = const TimeOfDay(hour: 12, minute: 0);
+    _selectedLocation = _initialLocation;
+    _hasTime = true;
+  }
+
+  void _showLoading() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Creando evento...',
+          style: TextStyle(color: AppColors.onSurface),
+        ),
+        content: const SizedBox(
+          height: 50,
+          child: Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green.shade600,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade600,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
