@@ -9,9 +9,14 @@ import '../../../widgets/search/event_search_bar.dart';
 import 'home_view_model.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.eventsCatalog});
+  const HomeScreen({
+    super.key,
+    required this.eventsCatalog,
+    required this.isAdminUnlocked,
+  });
 
   final EventsCatalogViewModel eventsCatalog;
+  final bool isAdminUnlocked;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -64,6 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
               style: _viewModel.mapStyle,
               markers: _viewModel.markers,
               mapType: MapType.normal,
+              onCameraMove: (position) =>
+                  _viewModel.updateCameraZoom(position.zoom),
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               compassEnabled: true,
@@ -141,6 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   isTogglingFavorite: _viewModel.isTogglingFavorite,
                   onClose: _viewModel.clearSelectedEvent,
                   onFavoriteToggle: _viewModel.toggleSelectedFavorite,
+                  onDelete: widget.isAdminUnlocked
+                      ? () => _deleteSelectedEvent(context)
+                      : null,
                   bottomInset: _navBarClearance,
                 ),
               ),
@@ -154,6 +164,48 @@ class _HomeScreenState extends State<HomeScreen> {
   String _shortError(String error) {
     if (error.length <= 120) return error;
     return '${error.substring(0, 117)}...';
+  }
+
+  Future<void> _deleteSelectedEvent(BuildContext context) async {
+    final event = _viewModel.selectedEvent;
+    if (event == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Eliminar evento',
+          style: TextStyle(color: AppColors.onSurface),
+        ),
+        content: Text(
+          'Eliminar "${event.title}" de forma permanente?',
+          style: const TextStyle(color: AppColors.onSurface),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    final deleted = await _viewModel.deleteSelectedEvent();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(deleted ? 'Evento eliminado' : 'No se pudo eliminar'),
+        backgroundColor: deleted ? Colors.green.shade600 : Colors.red.shade600,
+      ),
+    );
   }
 }
 

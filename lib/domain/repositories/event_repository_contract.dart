@@ -6,9 +6,10 @@ abstract interface class EventRepositoryContract {
     required double latitude,
     required double longitude,
     String within = '50km',
+    bool forceRefresh = false,
   });
 
-  Future<List<Event>> obtenerEventosAprobados();
+  Future<List<Event>> obtenerEventosAprobados({bool forceRefresh = false});
 
   Future<bool> crearEvento({
     required String nombre,
@@ -24,4 +25,6 @@ abstract interface class EventRepositoryContract {
   Future<List<Event>> obtenerEventosPendientesAdmin();
 
   Future<bool> aprobarEvento(int idEvento);
+
+  Future<bool> eliminarEvento(int idEvento);
 }

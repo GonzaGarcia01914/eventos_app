@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../domain/entities/event.dart';
 import '../../domain/entities/event_type.dart';
 import '../../domain/repositories/event_repository_contract.dart';
@@ -10,25 +13,90 @@ class EventoRepository implements EventRepositoryContract {
   EventoRepository({EventoService? service})
     : _service = service ?? EventoService();
 
+  static const Duration _approvedEventsCacheTtl = Duration(minutes: 5);
+  static const String _approvedEventsCacheKey = 'approved_events_cache';
+  static const String _approvedEventsCachedAtKey = 'approved_events_cached_at';
+  static List<Event>? _cachedApprovedEvents;
+  static DateTime? _approvedEventsCachedAt;
+
   @override
   Future<List<Event>> searchNearby({
     required double latitude,
     required double longitude,
     String within = '50km',
+    bool forceRefresh = false,
   }) async {
-    return obtenerEventosAprobados();
+    return obtenerEventosAprobados(forceRefresh: forceRefresh);
   }
 
   @override
-  Future<List<Event>> obtenerEventosAprobados() async {
+  Future<List<Event>> obtenerEventosAprobados({
+    bool forceRefresh = false,
+  }) async {
     try {
+      final cached = _cachedApprovedEvents;
+      final cachedAt = _approvedEventsCachedAt;
+      if (!forceRefresh && cached != null && cachedAt != null) {
+        final cacheAge = DateTime.now().difference(cachedAt);
+        if (cacheAge < _approvedEventsCacheTtl) {
+          return List<Event>.unmodifiable(cached);
+        }
+      }
+
+      if (!forceRefresh) {
+        final persistedCache = await _readPersistedApprovedEventsCache();
+        if (persistedCache != null) return persistedCache;
+      }
+
       final eventosJson = await _service.obtenerEventosAprobados();
-      return eventosJson
+      final events = eventosJson
           .map((json) => _mapJsonToEvent(json as Map<String, dynamic>))
           .toList();
+      _cachedApprovedEvents = List<Event>.unmodifiable(events);
+      _approvedEventsCachedAt = DateTime.now();
+      await _writePersistedApprovedEventsCache(events, _approvedEventsCachedAt!);
+      return events;
     } catch (e) {
-      return [];
+      return _cachedApprovedEvents ?? [];
     }
+  }
+
+  Future<List<Event>?> _readPersistedApprovedEventsCache() async {
+    final preferences = await SharedPreferences.getInstance();
+    final encodedEvents = preferences.getString(_approvedEventsCacheKey);
+    final cachedAtMillis = preferences.getInt(_approvedEventsCachedAtKey);
+    if (encodedEvents == null || cachedAtMillis == null) return null;
+
+    final cachedAt = DateTime.fromMillisecondsSinceEpoch(cachedAtMillis);
+    final cacheAge = DateTime.now().difference(cachedAt);
+    if (cacheAge >= _approvedEventsCacheTtl) return null;
+
+    try {
+      final decoded = jsonDecode(encodedEvents) as List<dynamic>;
+      final events = decoded
+          .map((json) => Event.fromJson(json as Map<String, dynamic>))
+          .toList();
+      _cachedApprovedEvents = List<Event>.unmodifiable(events);
+      _approvedEventsCachedAt = cachedAt;
+      return events;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _writePersistedApprovedEventsCache(
+    List<Event> events,
+    DateTime cachedAt,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _approvedEventsCacheKey,
+      jsonEncode(events.map((event) => event.toJson()).toList()),
+    );
+    await preferences.setInt(
+      _approvedEventsCachedAtKey,
+      cachedAt.millisecondsSinceEpoch,
+    );
   }
 
   @override
@@ -71,18 +139,30 @@ class EventoRepository implements EventRepositoryContract {
     return _service.aprobarEvento(idEvento);
   }
 
+  @override
+  Future<bool> eliminarEvento(int idEvento) async {
+    final success = await _service.eliminarEvento(idEvento);
+    if (success) {
+      _cachedApprovedEvents = null;
+      _approvedEventsCachedAt = null;
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.remove(_approvedEventsCacheKey);
+      await preferences.remove(_approvedEventsCachedAtKey);
+    }
+    return success;
+  }
+
   Event _mapJsonToEvent(Map<String, dynamic> json) {
     final nombre = json['nombre'] as String? ?? 'Sin nombre';
+    final descripcion = json['descripcion'] as String? ?? '';
     final precio = (json['precio'] as num?)?.toDouble() ?? 0.0;
-    final categorias =
-        (json['categorias'] as List<dynamic>?)?.cast<String>() ?? [];
+    final categorias = _parseCategories(json['categorias']);
     final ubicacionMaps = json['ubicacion_maps'] as String? ?? '';
+    final parsedLocation = _parseLocation(ubicacionMaps, json);
     final imagenUrl = json['imagen_url'] as String?;
     final fecha = json['fecha'] as String? ?? '';
     final hora = json['hora'] as String? ?? '';
     final id = json['id']?.toString() ?? DateTime.now().toString();
-    final latitude = (json['latitude'] as num?)?.toDouble() ?? -25.2637;
-    final longitude = (json['longitude'] as num?)?.toDouble() ?? -57.5759;
 
     EventType type = EventType.other;
     if (categorias.isNotEmpty) {
@@ -115,17 +195,102 @@ class EventoRepository implements EventRepositoryContract {
     return Event(
       id: id,
       title: nombre,
-      location: ubicacionMaps,
+      description: descripcion,
+      location: parsedLocation.label,
       startAt: startAt,
       priceLabel: priceLabel,
       priceAmount: precio.toInt(),
       type: type,
       types: types.isEmpty ? [type] : types,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: parsedLocation.latitude,
+      longitude: parsedLocation.longitude,
       imageUrl: imagenUrl,
       videoUrl: null,
     );
+  }
+
+  List<String> _parseCategories(Object? value) {
+    if (value is List<dynamic>) {
+      return value.map((category) => category.toString()).toList();
+    }
+    if (value is String) {
+      return value
+          .split(',')
+          .map((category) => category.trim())
+          .where((category) => category.isNotEmpty)
+          .toList();
+    }
+    return [];
+  }
+
+  _ParsedLocation _parseLocation(
+    String rawLocation,
+    Map<String, dynamic> json,
+  ) {
+    final explicitLatitude = (json['latitude'] as num?)?.toDouble();
+    final explicitLongitude = (json['longitude'] as num?)?.toDouble();
+    if (explicitLatitude != null && explicitLongitude != null) {
+      return _ParsedLocation(
+        label: rawLocation,
+        latitude: explicitLatitude,
+        longitude: explicitLongitude,
+      );
+    }
+
+    final encodedParts = rawLocation.split('|');
+    if (encodedParts.length >= 2) {
+      final coordinates = _parseCoordinates(encodedParts.last);
+      if (coordinates != null) {
+        return _ParsedLocation(
+          label: encodedParts.first.trim().isEmpty
+              ? rawLocation
+              : encodedParts.first.trim(),
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+        );
+      }
+    }
+
+    final coordinates = _parseCoordinates(rawLocation);
+    if (coordinates != null) {
+      return _ParsedLocation(
+        label: rawLocation,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      );
+    }
+
+    return _ParsedLocation(
+      label: rawLocation,
+      latitude: -25.2637,
+      longitude: -57.5759,
+    );
+  }
+
+  _Coordinates? _parseCoordinates(String value) {
+    final decoded = _safeDecode(value);
+    final match = RegExp(
+      r'(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)',
+    ).firstMatch(decoded);
+    if (match == null) return null;
+
+    final first = double.tryParse(match.group(1)!);
+    final second = double.tryParse(match.group(2)!);
+    if (first == null || second == null) return null;
+
+    final looksLikeLatLng =
+        first >= -90 && first <= 90 && second >= -180 && second <= 180;
+    if (!looksLikeLatLng) return null;
+
+    return _Coordinates(latitude: first, longitude: second);
+  }
+
+  String _safeDecode(String value) {
+    try {
+      return Uri.decodeFull(value);
+    } catch (_) {
+      return value;
+    }
   }
 
   DateTime _parseDateTime(String fecha, String hora) {
@@ -157,4 +322,23 @@ class EventoRepository implements EventRepositoryContract {
     }
     return parts.join(',');
   }
+}
+
+class _ParsedLocation {
+  const _ParsedLocation({
+    required this.label,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  final String label;
+  final double latitude;
+  final double longitude;
+}
+
+class _Coordinates {
+  const _Coordinates({required this.latitude, required this.longitude});
+
+  final double latitude;
+  final double longitude;
 }

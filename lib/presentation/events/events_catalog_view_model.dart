@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/evento_repository.dart';
@@ -22,6 +24,7 @@ class EventsCatalogViewModel extends ChangeNotifier {
 
   final double searchLatitude;
   final double searchLongitude;
+  Timer? _autoRefreshTimer;
 
   List<Event> _allEvents = [];
   bool _isLoadingEvents = false;
@@ -46,9 +49,16 @@ class EventsCatalogViewModel extends ChangeNotifier {
   bool get isFilterDrawerOpen => _isFilterDrawerOpen;
   bool get hasActiveFilters => _appliedFilters.hasActiveFilters;
 
-  Future<void> initialize() => loadEvents();
+  Future<void> initialize() async {
+    await loadEvents();
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => refreshEvents(),
+    );
+  }
 
-  Future<void> loadEvents() async {
+  Future<void> loadEvents({bool forceRefresh = false}) async {
     _isLoadingEvents = true;
     _eventsError = null;
     notifyListeners();
@@ -57,6 +67,7 @@ class EventsCatalogViewModel extends ChangeNotifier {
       _allEvents = await _eventRepository.searchNearby(
         latitude: searchLatitude,
         longitude: searchLongitude,
+        forceRefresh: forceRefresh,
       );
     } catch (error) {
       _allEvents = [];
@@ -65,6 +76,11 @@ class EventsCatalogViewModel extends ChangeNotifier {
       _isLoadingEvents = false;
       notifyListeners();
     }
+  }
+
+  Future<void> refreshEvents({bool forceRefresh = false}) {
+    if (_isLoadingEvents) return Future<void>.value();
+    return loadEvents(forceRefresh: forceRefresh);
   }
 
   void updateSearchQuery(String query) {
@@ -97,5 +113,19 @@ class EventsCatalogViewModel extends ChangeNotifier {
   void clearDraftFilters() {
     _draftFilters = EventSearchFilters.empty;
     notifyListeners();
+  }
+
+  void removeEventById(String eventId) {
+    _allEvents = [
+      for (final event in _allEvents)
+        if (event.id != eventId) event,
+    ];
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 }

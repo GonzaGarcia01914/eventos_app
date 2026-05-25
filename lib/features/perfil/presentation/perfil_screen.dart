@@ -15,7 +15,9 @@ import '../../../data/services/evento_service.dart';
 import '../../../domain/entities/event_type.dart';
 
 class PerfilScreen extends StatefulWidget {
-  const PerfilScreen({super.key});
+  const PerfilScreen({super.key, required this.onAdminUnlocked});
+
+  final VoidCallback onAdminUnlocked;
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -70,6 +72,18 @@ class _PerfilScreenState extends State<PerfilScreen> {
     setState(() => _currentStep--);
   }
 
+  void _cancel() {
+    if (_titleController.text.trim() == 'X@3489') {
+      _resetForm();
+      setState(() => _currentStep = 0);
+      widget.onAdminUnlocked();
+      return;
+    }
+
+    _resetForm();
+    setState(() => _currentStep = 0);
+  }
+
   void _goNext() async {
     if (_currentStep == 2) {
       await _crearEvento();
@@ -97,9 +111,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
         descripcion: _descriptionController.text,
         precio: _parsePrecio(_priceController.text),
         categorias: _selectedCategories.map((e) => e.name).toList(),
-        ubicacionMaps: _locationController.text.isEmpty
-            ? '${_selectedLocation.latitude},${_selectedLocation.longitude}'
-            : _locationController.text,
+        ubicacionMaps: _encodeLocationForStorage(),
         fotoOriginal: _selectedImageFile!,
         fecha: '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
         hora: '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
@@ -125,6 +137,14 @@ class _PerfilScreenState extends State<PerfilScreen> {
   double _parsePrecio(String texto) {
     final digits = texto.replaceAll(RegExp(r'[^0-9]'), '');
     return digits.isEmpty ? 0.0 : double.parse(digits);
+  }
+
+  String _encodeLocationForStorage() {
+    final label = _locationController.text.trim();
+    final coordinates =
+        '${_selectedLocation.latitude},${_selectedLocation.longitude}';
+    if (label.isEmpty) return coordinates;
+    return '$label|$coordinates';
   }
 
   void _resetForm() {
@@ -223,8 +243,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 children: [
                   Expanded(
                     child: _SecondaryButton(
-                      label: 'Atras',
-                      onPressed: _currentStep == 0 ? null : _goBack,
+                      label: _currentStep == 0 ? 'Cancelar' : 'Atras',
+                      onPressed: _currentStep == 0 ? _cancel : _goBack,
                     ),
                   ),
                   const SizedBox(width: 14),

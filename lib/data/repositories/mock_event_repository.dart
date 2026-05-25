@@ -63,6 +63,7 @@ class MockEventRepository implements EventRepositoryContract {
     required double latitude,
     required double longitude,
     String within = '50km',
+    bool forceRefresh = false,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
@@ -104,6 +105,8 @@ class MockEventRepository implements EventRepositoryContract {
     return Event(
       id: id,
       title: template.title,
+      description:
+          'Evento de prueba con actividades, invitados y detalles pensados para validar la experiencia completa.',
       imageUrl: 'https://picsum.photos/seed/$id/800/500',
       videoUrl: hasVideo
           ? _sampleVideos[_random.nextInt(_sampleVideos.length)]
@@ -120,8 +123,14 @@ class MockEventRepository implements EventRepositoryContract {
   }
 
   @override
-  Future<List<Event>> obtenerEventosAprobados() async {
-    return searchNearby(latitude: -25.2637, longitude: -57.5759);
+  Future<List<Event>> obtenerEventosAprobados({
+    bool forceRefresh = false,
+  }) async {
+    return searchNearby(
+      latitude: -25.2637,
+      longitude: -57.5759,
+      forceRefresh: forceRefresh,
+    );
   }
 
   @override
@@ -145,6 +154,11 @@ class MockEventRepository implements EventRepositoryContract {
 
   @override
   Future<bool> aprobarEvento(int idEvento) async {
+    return true;
+  }
+
+  @override
+  Future<bool> eliminarEvento(int idEvento) async {
     return true;
   }
 }

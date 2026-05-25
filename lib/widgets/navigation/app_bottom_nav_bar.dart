@@ -7,10 +7,12 @@ class AppBottomNavBar extends StatelessWidget {
   const AppBottomNavBar({
     super.key,
     required this.currentTab,
+    required this.tabs,
     required this.onTabSelected,
   });
 
   final AppTab currentTab;
+  final List<AppTab> tabs;
   final ValueChanged<AppTab> onTabSelected;
 
   @override
@@ -38,7 +40,7 @@ class AppBottomNavBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             children: [
-              for (final tab in AppTab.valuesOrdered)
+              for (final tab in tabs)
                 Expanded(
                   child: _NavItem(
                     tab: tab,

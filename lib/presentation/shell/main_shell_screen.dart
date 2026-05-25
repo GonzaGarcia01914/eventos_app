@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_tab.dart';
+import '../../features/admin/presentation/admin_screen.dart';
 import '../../features/discover/presentation/discover_screen.dart';
 import '../../features/favourites/presentation/favourites_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
@@ -20,6 +21,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   late final ShellViewModel _viewModel;
   late final EventsCatalogViewModel _eventsCatalog;
   final _favouritesKey = GlobalKey<FavouritesScreenState>();
+  bool _isAdminUnlocked = false;
 
   @override
   void initState() {
@@ -29,10 +31,16 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 
   void _onTabSelected(AppTab tab) {
+    if (tab == AppTab.admin && !_isAdminUnlocked) return;
     _viewModel.selectTab(tab);
     if (tab == AppTab.favourites) {
       _favouritesKey.currentState?.reload();
     }
+  }
+
+  void _unlockAdmin() {
+    setState(() => _isAdminUnlocked = true);
+    _viewModel.selectTab(AppTab.admin);
   }
 
   @override
@@ -54,17 +62,31 @@ class _MainShellScreenState extends State<MainShellScreen> {
           body: IndexedStack(
             index: _viewModel.currentIndex,
             children: [
-              HomeScreen(eventsCatalog: _eventsCatalog),
+              HomeScreen(
+                eventsCatalog: _eventsCatalog,
+                isAdminUnlocked: _isAdminUnlocked,
+              ),
               DiscoverScreen(
                 eventsCatalog: _eventsCatalog,
                 isActive: isDiscoverActive,
               ),
               FavouritesScreen(key: _favouritesKey),
-              const PerfilScreen(),
+              PerfilScreen(onAdminUnlocked: _unlockAdmin),
+              if (_isAdminUnlocked)
+                AdminScreen(
+                  onEventApproved: () =>
+                      _eventsCatalog.refreshEvents(forceRefresh: true),
+                )
+              else
+                const SizedBox.shrink(),
             ],
           ),
           bottomNavigationBar: AppBottomNavBar(
             currentTab: _viewModel.currentTab,
+            tabs: [
+              for (final tab in AppTab.valuesOrdered)
+                if (tab != AppTab.admin || _isAdminUnlocked) tab,
+            ],
             onTabSelected: _onTabSelected,
           ),
         );

@@ -5,6 +5,7 @@ class Event {
   const Event({
     required this.id,
     required this.title,
+    this.description = '',
     required this.location,
     required this.startAt,
     required this.priceLabel,
@@ -20,6 +21,7 @@ class Event {
 
   final String id;
   final String title;
+  final String description;
   final String? imageUrl;
   final String? videoUrl;
   final String location;
@@ -39,6 +41,7 @@ class Event {
   Event copyWith({
     String? id,
     String? title,
+    String? description,
     String? imageUrl,
     String? videoUrl,
     String? location,
@@ -54,6 +57,7 @@ class Event {
     return Event(
       id: id ?? this.id,
       title: title ?? this.title,
+      description: description ?? this.description,
       imageUrl: imageUrl ?? this.imageUrl,
       videoUrl: videoUrl ?? this.videoUrl,
       location: location ?? this.location,
@@ -71,6 +75,7 @@ class Event {
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
+        'description': description,
         'imageUrl': imageUrl,
         'videoUrl': videoUrl,
         'location': location,
@@ -105,6 +110,7 @@ class Event {
     return Event(
       id: json['id'] as String,
       title: json['title'] as String,
+      description: json['description'] as String? ?? '',
       imageUrl: json['imageUrl'] as String?,
       videoUrl: json['videoUrl'] as String?,
       location: json['location'] as String,

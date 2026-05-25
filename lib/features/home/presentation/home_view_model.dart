@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/events/event_type_visuals.dart';
 import '../../../data/repositories/favorites_repository.dart';
 import '../../../data/repositories/map_style_repository.dart';
+import '../../../data/repositories/evento_repository.dart';
 import '../../../domain/entities/event.dart';
 import '../../../domain/entities/event_type.dart';
+import '../../../domain/repositories/event_repository_contract.dart';
 import '../../../domain/repositories/favorites_repository_contract.dart';
 import '../../../domain/repositories/map_style_repository_contract.dart';
 import '../../../presentation/events/events_catalog_view_model.dart';
@@ -15,19 +18,24 @@ import '../../../presentation/events/events_catalog_view_model.dart';
 class HomeViewModel extends ChangeNotifier {
   HomeViewModel({
     required EventsCatalogViewModel eventsCatalog,
+    EventRepositoryContract? eventRepository,
     MapStyleRepositoryContract? mapStyleRepository,
     FavoritesRepositoryContract? favoritesRepository,
   }) : _eventsCatalog = eventsCatalog,
+       _eventRepository = eventRepository ?? EventoRepository(),
        _mapStyleRepository = mapStyleRepository ?? const MapStyleRepository(),
        _favoritesRepository = favoritesRepository ?? FavoritesRepository() {
     _eventsCatalog.addListener(_onCatalogChanged);
   }
 
   final EventsCatalogViewModel _eventsCatalog;
+  final EventRepositoryContract _eventRepository;
   final MapStyleRepositoryContract _mapStyleRepository;
   final FavoritesRepositoryContract _favoritesRepository;
 
   String? _mapStyle;
+  String? _mapStyleNoPois;
+  double _cameraZoom = 13;
   bool _isLoadingStyle = true;
 
   Set<Marker> _markers = {};
@@ -41,7 +49,7 @@ class HomeViewModel extends ChangeNotifier {
 
   EventsCatalogViewModel get eventsCatalog => _eventsCatalog;
 
-  String? get mapStyle => _mapStyle;
+  String? get mapStyle => _shouldShowGooglePlaces ? _mapStyle : _mapStyleNoPois;
   bool get isLoadingStyle => _isLoadingStyle;
   Set<Marker> get markers => _markers;
   Event? get selectedEvent => _selectedEvent;
@@ -61,8 +69,19 @@ class HomeViewModel extends ChangeNotifier {
 
   Future<void> _loadMapStyle() async {
     _mapStyle = await _mapStyleRepository.loadDarkStyle();
+    _mapStyleNoPois = _buildNoPoisStyle(_mapStyle);
     _isLoadingStyle = false;
     notifyListeners();
+  }
+
+  bool get _shouldShowGooglePlaces => _cameraZoom >= 16;
+
+  void updateCameraZoom(double zoom) {
+    final wasShowingGooglePlaces = _shouldShowGooglePlaces;
+    _cameraZoom = zoom;
+    if (wasShowingGooglePlaces != _shouldShowGooglePlaces) {
+      notifyListeners();
+    }
   }
 
   Future<void> _loadFavoriteIds() async {
@@ -178,6 +197,46 @@ class HomeViewModel extends ChangeNotifier {
 
     _isTogglingFavorite = false;
     notifyListeners();
+  }
+
+  Future<bool> deleteSelectedEvent() async {
+    final event = _selectedEvent;
+    final eventId = int.tryParse(event?.id ?? '');
+    if (event == null || eventId == null) return false;
+
+    final success = await _eventRepository.eliminarEvento(eventId);
+    if (!success) return false;
+
+    _eventsCatalog.removeEventById(event.id);
+    clearSelectedEvent();
+    return true;
+  }
+
+  String? _buildNoPoisStyle(String? style) {
+    if (style == null || style.isEmpty) return style;
+
+    try {
+      final entries = jsonDecode(style) as List<dynamic>;
+      entries.addAll([
+        {
+          'featureType': 'poi',
+          'elementType': 'labels',
+          'stylers': [
+            {'visibility': 'off'},
+          ],
+        },
+        {
+          'featureType': 'transit.station',
+          'elementType': 'labels',
+          'stylers': [
+            {'visibility': 'off'},
+          ],
+        },
+      ]);
+      return jsonEncode(entries);
+    } catch (_) {
+      return style;
+    }
   }
 
   @override
