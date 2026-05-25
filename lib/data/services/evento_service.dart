@@ -24,50 +24,19 @@ class EventoService {
         return false;
       }
 
-      // 2. OBTENER URL FIRMADA
-      print("[CrearEvento] 2/4 - Solicitando URL firmada a Cloudflare...");
-      final respuestaUrls = await http.post(
-        Uri.parse("$baseUrl/api/obtener-url-foto"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"nombreArchivo": _safeImageName()}),
-      );
-
-      if (respuestaUrls.statusCode != 200) {
-        print("[CrearEvento] Error en api/obtener-url-foto.");
-        print("   Codigo HTTP: ${respuestaUrls.statusCode}");
-        print("   Cuerpo de respuesta: ${respuestaUrls.body}");
+      // 2. SUBIR IMAGEN AL WORKER
+      print("[CrearEvento] 2/4 - Subiendo imagen a Cloudflare...");
+      final respuestaUpload = await _subirFoto(bytesImagen, fotoOriginal.name);
+      if (respuestaUpload == null) {
+        print("[CrearEvento] Error al subir la imagen.");
         return false;
       }
 
-      final datosUrls = jsonDecode(respuestaUrls.body);
-      final String uploadUrl = datosUrls["uploadUrl"];
-      final String finalUrl = datosUrls["finalUrl"];
+      final String finalUrl = respuestaUpload;
 
-      // 3. SUBIR A R2
+      // 3. GUARDAR EN D1
       print(
-        "[CrearEvento] 3/4 - Subiendo bytes de imagen directamente a R2...",
-      );
-      final respuestaR2 = await http.put(
-        Uri.parse(uploadUrl),
-        headers: {"Content-Type": "image/jpeg"},
-        body: bytesImagen,
-      );
-
-      if (respuestaR2.statusCode != 200) {
-        print(
-          "[CrearEvento] Error al subir la imagen directamente a Cloudflare R2.",
-        );
-        print("   Codigo HTTP: ${respuestaR2.statusCode}");
-        print("   Cuerpo de respuesta: ${respuestaR2.body}");
-        print(
-          "   Tip: Verifica que las llaves R2 en tu wrangler.toml sean las S3 Credentials correctas.",
-        );
-        return false;
-      }
-
-      // 4. GUARDAR EN D1
-      print(
-        "[CrearEvento] 4/4 - Insertando datos del evento en la base de datos D1...",
+        "[CrearEvento] 3/4 - Insertando datos del evento en la base de datos D1...",
       );
       final respuestaFinal = await http.post(
         Uri.parse("$baseUrl/api/eventos"),
@@ -101,8 +70,51 @@ class EventoService {
     }
   }
 
-  String _safeImageName() {
-    return 'evento_${DateTime.now().millisecondsSinceEpoch}.jpg';
+  String _safeImageName(String originalName) {
+    final extension = originalName.split('.').last.toLowerCase();
+    final safeExtension = switch (extension) {
+      'jpg' || 'jpeg' || 'png' || 'webp' => extension,
+      _ => 'jpg',
+    };
+    return 'evento_${DateTime.now().millisecondsSinceEpoch}.$safeExtension';
+  }
+
+  String _contentTypeFor(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    return switch (extension) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      _ => 'image/jpeg',
+    };
+  }
+
+  Future<String?> _subirFoto(List<int> bytesImagen, String originalName) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse("$baseUrl/api/subir-foto"),
+    );
+    final fileName = _safeImageName(originalName);
+    request.fields['contentType'] = _contentTypeFor(fileName);
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'foto',
+        bytesImagen,
+        filename: fileName,
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 200) {
+      print("[SubirFoto] Fallo. Codigo HTTP: ${response.statusCode}");
+      print("[SubirFoto] Respuesta: ${response.body}");
+      return null;
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return data['finalUrl'] as String?;
   }
 
   Future<List<dynamic>> obtenerEventosAprobados() async {
