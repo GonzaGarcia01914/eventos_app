@@ -90,31 +90,47 @@ class EventoService {
   }
 
   Future<String?> _subirFoto(List<int> bytesImagen, String originalName) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse("$baseUrl/api/subir-foto"),
-    );
+    // 1. Obtener URL firmada de R2
+    print("[SubirFoto] 1/2 - Obteniendo URL firmada...");
     final fileName = _safeImageName(originalName);
-    request.fields['contentType'] = _contentTypeFor(fileName);
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'foto',
-        bytesImagen,
-        filename: fileName,
-      ),
+    final respuestaFirmada = await http.post(
+      Uri.parse("$baseUrl/api/obtener-url-foto"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"nombreArchivo": fileName}),
     );
 
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode != 200) {
-      print("[SubirFoto] Fallo. Codigo HTTP: ${response.statusCode}");
-      print("[SubirFoto] Respuesta: ${response.body}");
+    if (respuestaFirmada.statusCode != 200) {
+      print(
+        "[SubirFoto] Error al obtener URL firmada. Codigo: ${respuestaFirmada.statusCode}",
+      );
       return null;
     }
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return data['finalUrl'] as String?;
+    final datosUrl = jsonDecode(respuestaFirmada.body) as Map<String, dynamic>;
+    final uploadUrl = datosUrl['uploadUrl'] as String;
+    final finalUrl = datosUrl['finalUrl'] as String;
+
+    // 2. Subir archivo directamente a R2 con la URL firmada
+    print("[SubirFoto] 2/2 - Subiendo a R2...");
+    try {
+      final respuestaR2 = await http.put(
+        Uri.parse(uploadUrl),
+        body: bytesImagen,
+        headers: {"Content-Type": _contentTypeFor(fileName)},
+      );
+
+      if (respuestaR2.statusCode != 200) {
+        print("[SubirFoto] Error en R2. Codigo: ${respuestaR2.statusCode}");
+        print("[SubirFoto] Respuesta: ${respuestaR2.body}");
+        return null;
+      }
+
+      print("[SubirFoto] Archivo subido exitosamente a: $finalUrl");
+      return finalUrl;
+    } catch (e) {
+      print("[SubirFoto] Excepcion: $e");
+      return null;
+    }
   }
 
   Future<List<dynamic>> obtenerEventosAprobados() async {
