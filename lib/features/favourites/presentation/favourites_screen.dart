@@ -118,7 +118,11 @@ class _FavoriteEventCard extends StatelessWidget {
               width: 88,
               height: 88,
               child: event.imageUrl != null
-                  ? Image.network(event.imageUrl!, fit: BoxFit.cover)
+                  ? Image.network(
+                      event.imageUrl!,
+                      fit: BoxFit.cover,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                    )
                   : const ColoredBox(
                       color: AppColors.surfaceElevated,
                       child: Icon(Icons.event, color: AppColors.onSurfaceMuted),

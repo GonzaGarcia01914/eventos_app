@@ -103,6 +103,7 @@ class _StoryMediaViewState extends State<StoryMediaView> {
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
+        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
         errorBuilder: (_, __, ___) => const _PlaceholderMedia(),
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;

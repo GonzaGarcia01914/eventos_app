@@ -281,6 +281,7 @@ class _EventCard extends StatelessWidget {
                       width: 80,
                       height: 80,
                       fit: BoxFit.cover,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                       errorBuilder: (_, __, ___) => Container(
                         width: 80,
                         height: 80,
@@ -513,6 +514,7 @@ class _DetailImage extends StatelessWidget {
       height: height,
       width: double.infinity,
       fit: BoxFit.cover,
+      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
       errorBuilder: (_, __, ___) => Container(
         height: height,
         color: AppColors.surfaceElevated,

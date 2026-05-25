@@ -227,6 +227,7 @@ class _EventImage extends StatelessWidget {
       height: height,
       width: double.infinity,
       fit: BoxFit.cover,
+      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
       errorBuilder: (_, __, ___) => Container(
         height: height,
         color: AppColors.surfaceElevated,
