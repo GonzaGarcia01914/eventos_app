@@ -1,16 +1,26 @@
-# eventos_app
+# EventosPy
 
-A new Flutter project.
+App Flutter para publicar y descubrir eventos.
 
-## Getting Started
+## Deploy web en GitHub Pages
 
-This project is a starting point for a Flutter application.
+El deploy se ejecuta automaticamente con GitHub Actions al hacer push a `main`.
 
-A few resources to get you started if this is your first Flutter project:
+1. En GitHub, ir a `Settings > Secrets and variables > Actions`.
+2. Crear el secret `GOOGLE_MAPS_API_KEY` con la clave web de Google Maps.
+3. Ir a `Settings > Pages` y seleccionar `GitHub Actions` como source.
+4. Hacer push a `main` o ejecutar manualmente el workflow `Deploy Flutter Web to GitHub Pages`.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Conviene restringir la clave de Google Maps al dominio `https://GonzaGarcia01914.github.io/eventos_app/*`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+URL esperada:
+
+```text
+https://GonzaGarcia01914.github.io/eventos_app/
+```
+
+Build local equivalente:
+
+```bash
+flutter build web --release --base-href /eventos_app/ --dart-define=GOOGLE_MAPS_API_KEY=tu_clave
+```
