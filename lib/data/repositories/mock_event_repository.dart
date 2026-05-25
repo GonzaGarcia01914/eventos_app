@@ -82,6 +82,13 @@ class MockEventRepository implements EventRepositoryContract {
   }) {
     final id = 'mock-$index-${_random.nextInt(99999)}';
     final template = _eventTemplates[_random.nextInt(_eventTemplates.length)];
+    final secondaryType = EventType.filterable[_random.nextInt(
+      EventType.filterable.length,
+    )];
+    final types = {
+      template.type,
+      if (_random.nextBool()) secondaryType,
+    }.toList();
     final location = _venues[_random.nextInt(_venues.length)];
     final daysAhead = 1 + _random.nextInt(45);
     final hour = 10 + _random.nextInt(12);
@@ -106,6 +113,7 @@ class MockEventRepository implements EventRepositoryContract {
       priceLabel: price.label,
       priceAmount: price.amount,
       type: template.type,
+      types: types,
       latitude: centerLat + latOffset,
       longitude: centerLng + lngOffset,
     );

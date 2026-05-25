@@ -12,10 +12,11 @@ class Event {
     required this.type,
     required this.latitude,
     required this.longitude,
+    List<EventType>? types,
     this.imageUrl,
     this.videoUrl,
     this.timezone,
-  });
+  }) : types = types ?? const [];
 
   final String id;
   final String title;
@@ -26,12 +27,14 @@ class Event {
   final String priceLabel;
   final int priceAmount;
   final EventType type;
+  final List<EventType> types;
   final double latitude;
   final double longitude;
   final String? timezone;
 
   bool get isFree => priceAmount == 0;
   bool get hasVideo => videoUrl != null && videoUrl!.isNotEmpty;
+  List<EventType> get eventTypes => types.isEmpty ? [type] : types;
 
   Event copyWith({
     String? id,
@@ -43,6 +46,7 @@ class Event {
     String? priceLabel,
     int? priceAmount,
     EventType? type,
+    List<EventType>? types,
     double? latitude,
     double? longitude,
     String? timezone,
@@ -57,6 +61,7 @@ class Event {
       priceLabel: priceLabel ?? this.priceLabel,
       priceAmount: priceAmount ?? this.priceAmount,
       type: type ?? this.type,
+      types: types ?? this.types,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       timezone: timezone ?? this.timezone,
@@ -73,6 +78,7 @@ class Event {
         'priceLabel': priceLabel,
         'priceAmount': priceAmount,
         'type': type.name,
+        'types': eventTypes.map((value) => value.name).toList(),
         'latitude': latitude,
         'longitude': longitude,
         'timezone': timezone,
@@ -84,6 +90,17 @@ class Event {
       (value) => value.name == typeName,
       orElse: () => EventType.other,
     );
+    final typesJson = json['types'] as List<dynamic>? ?? const [];
+    final types = typesJson
+        .whereType<String>()
+        .map(
+          (typeName) => EventType.values.firstWhere(
+            (value) => value.name == typeName,
+            orElse: () => EventType.other,
+          ),
+        )
+        .toSet()
+        .toList();
 
     return Event(
       id: json['id'] as String,
@@ -95,6 +112,7 @@ class Event {
       priceLabel: json['priceLabel'] as String,
       priceAmount: json['priceAmount'] as int? ?? 0,
       type: type,
+      types: types.isEmpty ? [type] : types,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       timezone: json['timezone'] as String?,

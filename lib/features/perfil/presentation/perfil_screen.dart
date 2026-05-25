@@ -29,7 +29,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   final _imagePicker = ImagePicker();
 
   int _currentStep = 0;
-  EventType _selectedCategory = EventType.music;
+  final Set<EventType> _selectedCategories = {EventType.music};
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _selectedTime = const TimeOfDay(hour: 12, minute: 0);
   bool _hasTime = true;
@@ -146,12 +146,20 @@ class _PerfilScreenState extends State<PerfilScreen> {
       ),
       1 => _DetailsStep(
         key: const ValueKey(1),
-        selectedCategory: _selectedCategory,
+        selectedCategories: _selectedCategories,
         locationController: _locationController,
         selectedLocation: _selectedLocation,
         coverImageBytes: _coverImageBytes,
-        onCategorySelected: (type) {
-          setState(() => _selectedCategory = type);
+        onCategoryToggle: (type) {
+          setState(() {
+            if (_selectedCategories.contains(type)) {
+              if (_selectedCategories.length > 1) {
+                _selectedCategories.remove(type);
+              }
+            } else {
+              _selectedCategories.add(type);
+            }
+          });
         },
         onLocationSelected: (location) {
           setState(() => _selectedLocation = location);
@@ -313,20 +321,20 @@ class _BasicsStep extends StatelessWidget {
 class _DetailsStep extends StatelessWidget {
   const _DetailsStep({
     super.key,
-    required this.selectedCategory,
+    required this.selectedCategories,
     required this.locationController,
     required this.selectedLocation,
     required this.coverImageBytes,
-    required this.onCategorySelected,
+    required this.onCategoryToggle,
     required this.onLocationSelected,
     required this.onPickCover,
   });
 
-  final EventType selectedCategory;
+  final Set<EventType> selectedCategories;
   final TextEditingController locationController;
   final LatLng selectedLocation;
   final Uint8List? coverImageBytes;
-  final ValueChanged<EventType> onCategorySelected;
+  final ValueChanged<EventType> onCategoryToggle;
   final ValueChanged<LatLng> onLocationSelected;
   final VoidCallback onPickCover;
 
@@ -346,8 +354,8 @@ class _DetailsStep extends StatelessWidget {
               final type = EventType.filterable[index];
               return _CategoryChip(
                 type: type,
-                selected: type == selectedCategory,
-                onTap: () => onCategorySelected(type),
+                selected: selectedCategories.contains(type),
+                onTap: () => onCategoryToggle(type),
               );
             },
           ),
@@ -883,6 +891,14 @@ class _CategoryChip extends StatelessWidget {
         ),
         child: Row(
           children: [
+            if (selected) ...[
+              Icon(
+                Icons.check_circle_rounded,
+                color: EventTypeVisuals.color(type),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+            ],
             Icon(
               EventTypeVisuals.icon(type),
               color: EventTypeVisuals.color(type),

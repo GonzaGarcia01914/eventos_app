@@ -20,6 +20,9 @@ class StoryEventOverlay extends StatelessWidget {
       "EEEE d MMM · HH:mm",
       'es',
     ).format(event.startAt);
+    final categoriesLabel = event.eventTypes
+        .map((type) => type.label)
+        .join(' · ');
 
     return Positioned(
       left: 0,
@@ -49,7 +52,7 @@ class StoryEventOverlay extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  event.type.label,
+                  categoriesLabel,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,

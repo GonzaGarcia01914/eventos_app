@@ -22,11 +22,12 @@ class FilterEventsUseCase {
     if (query.isEmpty) return true;
     return event.title.toLowerCase().contains(query) ||
         event.location.toLowerCase().contains(query) ||
-        event.type.label.toLowerCase().contains(query);
+        event.eventTypes.any((type) => type.label.toLowerCase().contains(query));
   }
 
   bool _matchesFilters(Event event, EventSearchFilters filters) {
-    if (filters.eventType != null && event.type != filters.eventType) {
+    if (filters.eventType != null &&
+        !event.eventTypes.contains(filters.eventType)) {
       return false;
     }
 
