@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -119,7 +118,7 @@ class EventDetailDrawer extends StatelessWidget {
   }
 
   Future<void> _openMap(BuildContext context) async {
-    if (Platform.isIOS) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       final selected = await showModalBottomSheet<_MapTarget>(
         context: context,
         backgroundColor: AppColors.surface,
@@ -153,6 +152,14 @@ class EventDetailDrawer extends StatelessWidget {
       return;
     }
 
+    if (kIsWeb) {
+      final webUri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${event.latitude},${event.longitude}',
+      );
+      await _launchMapUrl(context, webUri);
+      return;
+    }
+
     final label = Uri.encodeComponent(event.location);
     final geoUri = Uri.parse(
       'geo:${event.latitude},${event.longitude}?q=${event.latitude},${event.longitude}($label)',
@@ -177,7 +184,8 @@ class EventDetailDrawer extends StatelessWidget {
 
   Future<void> _launchMapUrl(BuildContext context, Uri uri) async {
     Uri targetUri = uri;
-    if (Platform.isIOS &&
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
         uri.scheme == 'comgooglemaps' &&
         !await canLaunchUrl(uri)) {
       targetUri = Uri.parse(

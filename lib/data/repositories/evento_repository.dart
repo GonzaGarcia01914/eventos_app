@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/entities/event.dart';
@@ -106,7 +106,7 @@ class EventoRepository implements EventRepositoryContract {
     required double precio,
     required List<String> categorias,
     required String ubicacionMaps,
-    required File fotoOriginal,
+    required XFile fotoOriginal,
     required String fecha,
     required String hora,
   }) async {

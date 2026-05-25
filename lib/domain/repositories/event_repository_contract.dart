@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+
 import '../entities/event.dart';
 
 abstract interface class EventRepositoryContract {
@@ -17,7 +18,7 @@ abstract interface class EventRepositoryContract {
     required double precio,
     required List<String> categorias,
     required String ubicacionMaps,
-    required File fotoOriginal,
+    required XFile fotoOriginal,
     required String fecha,
     required String hora,
   });

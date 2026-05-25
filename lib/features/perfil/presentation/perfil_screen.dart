@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,7 +39,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   bool _hasTime = true;
   LatLng _selectedLocation = _initialLocation;
   Uint8List? _coverImageBytes;
-  File? _selectedImageFile;
+  XFile? _selectedImageFile;
 
   @override
   void dispose() {
@@ -63,7 +62,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     if (!mounted) return;
     setState(() {
       _coverImageBytes = bytes;
-      _selectedImageFile = File(image.path);
+      _selectedImageFile = image;
     });
   }
 

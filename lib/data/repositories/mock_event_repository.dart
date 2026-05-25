@@ -1,5 +1,6 @@
-import 'dart:io';
 import 'dart:math';
+
+import 'package:image_picker/image_picker.dart';
 
 import '../../domain/entities/event.dart';
 import '../../domain/entities/event_type.dart';
@@ -140,7 +141,7 @@ class MockEventRepository implements EventRepositoryContract {
     required double precio,
     required List<String> categorias,
     required String ubicacionMaps,
-    required File fotoOriginal,
+    required XFile fotoOriginal,
     required String fecha,
     required String hora,
   }) async {
