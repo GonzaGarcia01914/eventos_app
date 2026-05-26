@@ -1,54 +1,52 @@
-name: Flutter iOS Build Test
+name: Flutter iOS Simulator Build for Appetize
 
 on:
   push:
-    branches: [ "main", "develop" ] # Cambia esto por tu rama principal
+    branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  build_ios:
-    # Es obligatorio usar macOS para compilar aplicaciones de iOS
+  build_ios_simulator:
     runs-on: macos-latest
 
     steps:
-      # 1. Descargar el código del repositorio
+      # 1. Clonar el repositorio
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Configurar Java (requerido a veces por herramientas internas o plugins)
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      # 3. Configurar el entorno de Flutter
+      # 2. Configurar el entorno de Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          # Puedes especificar la versión exacta si lo prefieres, ej: flutter-version: '3.19.0'
 
-      # 4. Instalar las dependencias de Flutter
+      # 3. Instalar dependencias del proyecto
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      # 5. Instalar las dependencias de CocoaPods (Crucial para iOS)
+      # 4. Instalar CocoaPods
       - name: Install CocoaPods
         run: |
           cd ios
           pod install
           cd ..
 
-      # 6. Compilar la aplicación para iOS
-      # Usamos --no-codesign para saltarnos el bloqueo de certificados de Apple por ahora
-      - name: Build iOS IPA
-        run: flutter build ios --release --no-codesign
+      # 5. COMPILAR PARA SIMULADOR (Clave para Appetize)
+      # Se usa '--simulator' para compilar la arquitectura x86_64/ARM64 de simulación
+      - name: Build for iOS Simulator
+        run: flutter build ios --simulator --debug
 
-      # 7. (Opcional) Subir el resultado como artefacto de GitHub
-      - name: Upload Build Artifact
+      # 6. EMPAQUETAR EL .APP EN UN .ZIP (Requisito de Appetize)
+      # Appetize requiere que la carpeta 'Runner.app' esté dentro de un archivo zip
+      - name: Zip Build for Appetize
+        run: |
+          cd build/ios/iphonesimulator
+          zip -r ios_simulator_app.zip Runner.app
+
+      # 7. Guardar el archivo ZIP en los artefactos de GitHub
+      - name: Upload Zip Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build
-          path: build/ios/iphoneos
+          name: appetize-ios-build
+          path: build/ios/iphonesimulator/ios_simulator_app.zip
