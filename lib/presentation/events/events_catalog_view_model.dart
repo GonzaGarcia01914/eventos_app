@@ -83,6 +83,12 @@ class EventsCatalogViewModel extends ChangeNotifier {
     return loadEvents(forceRefresh: forceRefresh);
   }
 
+  Future<void> refreshEventsForced() {
+    _isLoadingEvents = true;
+    notifyListeners();
+    return loadEvents(forceRefresh: true);
+  }
+
   void updateSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();

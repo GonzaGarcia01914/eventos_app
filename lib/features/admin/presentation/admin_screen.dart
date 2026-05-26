@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/event.dart';
+import '../../../presentation/events/events_catalog_view_model.dart';
 import 'admin_view_model.dart';
 
 class AdminScreen extends StatefulWidget {
-  const AdminScreen({super.key, required this.onEventApproved});
+  const AdminScreen({
+    super.key,
+    required this.onEventApproved,
+    required this.eventsCatalog,
+  });
 
   final Future<void> Function() onEventApproved;
+  final EventsCatalogViewModel eventsCatalog;
 
   @override
   State<AdminScreen> createState() => _AdminScreenState();
@@ -348,7 +354,10 @@ class _AdminScreenState extends State<AdminScreen>
     if (!mounted) return;
 
     if (deleted) {
-      _logUI("✅ Evento eliminado exitosamente de la UI");
+      _logUI("✅ Evento eliminado exitosamente");
+      _logUI("🔄 Refrescando catálogo de eventos en la app...");
+      await widget.eventsCatalog.refreshEventsForced();
+      _logUI("✅ Catálogo actualizado");
     } else {
       _logUI("❌ Error: El ViewModel reportó fallo en eliminación");
     }

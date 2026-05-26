@@ -207,56 +207,76 @@ class EventoService {
 
   Future<bool> aprobarEvento(int idEvento) async {
     try {
-      _log("Aprobando evento ID $idEvento...");
+      _log("Aprobando evento ID: $idEvento (tipo: ${idEvento.runtimeType})");
       final url = "$baseUrl/api/admin/aprobar";
+      final body = jsonEncode({"id": idEvento});
+
       _log("URL: $url");
-      _log("Body: {\"id\": $idEvento}");
+      _log("Body: $body");
+      _log("Base URL: $baseUrl");
 
       final respuesta = await http.post(
         Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"id": idEvento}),
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Flutter-EventoApp",
+        },
+        body: body,
       );
 
       _log("Código HTTP: ${respuesta.statusCode}");
+      _log("Headers respuesta: ${respuesta.headers}");
+
       if (respuesta.statusCode == 200) {
         _log("✅ Evento $idEvento aprobado");
         return true;
       }
 
       _logError("Error aprobando evento: HTTP ${respuesta.statusCode}");
-      _logError("Respuesta: ${respuesta.body}");
+      _logError("Respuesta completa: ${respuesta.body}");
+      _logError("Content-Type respuesta: ${respuesta.headers['content-type']}");
       return false;
-    } catch (e) {
+    } catch (e, stacktrace) {
       _logError("Error de conexión: $e");
+      _logError("Stacktrace: $stacktrace");
       return false;
     }
   }
 
   Future<bool> eliminarEvento(int idEvento) async {
     try {
-      _log("Eliminando evento ID $idEvento...");
+      _log("Eliminando evento ID: $idEvento (tipo: ${idEvento.runtimeType})");
       final url = "$baseUrl/api/admin/eliminar";
+      final body = jsonEncode({"id": idEvento});
+
       _log("URL: $url");
-      _log("Body: {\"id\": $idEvento}");
+      _log("Body: $body");
+      _log("Base URL: $baseUrl");
 
       final respuesta = await http.post(
         Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"id": idEvento}),
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Flutter-EventoApp",
+        },
+        body: body,
       );
 
       _log("Código HTTP: ${respuesta.statusCode}");
+      _log("Headers respuesta: ${respuesta.headers}");
+
       if (respuesta.statusCode == 200) {
         _log("✅ Evento $idEvento eliminado");
         return true;
       }
 
       _logError("Error eliminando evento: HTTP ${respuesta.statusCode}");
-      _logError("Respuesta: ${respuesta.body}");
+      _logError("Respuesta completa: ${respuesta.body}");
+      _logError("Content-Type respuesta: ${respuesta.headers['content-type']}");
       return false;
-    } catch (e) {
+    } catch (e, stacktrace) {
       _logError("Error de conexión: $e");
+      _logError("Stacktrace: $stacktrace");
       return false;
     }
   }

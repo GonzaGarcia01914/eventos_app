@@ -76,6 +76,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
                 AdminScreen(
                   onEventApproved: () =>
                       _eventsCatalog.refreshEvents(forceRefresh: true),
+                  eventsCatalog: _eventsCatalog,
                 )
               else
                 const SizedBox.shrink(),
