@@ -208,12 +208,17 @@ class EventoService {
   Future<bool> aprobarEvento(int idEvento) async {
     try {
       _log("Aprobando evento ID $idEvento...");
+      final url = "$baseUrl/api/admin/aprobar";
+      _log("URL: $url");
+      _log("Body: {\"id\": $idEvento}");
+
       final respuesta = await http.post(
-        Uri.parse("$baseUrl/api/admin/aprobar"),
+        Uri.parse(url),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"id": idEvento}),
       );
 
+      _log("Código HTTP: ${respuesta.statusCode}");
       if (respuesta.statusCode == 200) {
         _log("✅ Evento $idEvento aprobado");
         return true;
@@ -231,12 +236,17 @@ class EventoService {
   Future<bool> eliminarEvento(int idEvento) async {
     try {
       _log("Eliminando evento ID $idEvento...");
+      final url = "$baseUrl/api/admin/eliminar";
+      _log("URL: $url");
+      _log("Body: {\"id\": $idEvento}");
+
       final respuesta = await http.post(
-        Uri.parse("$baseUrl/api/admin/eliminar"),
+        Uri.parse(url),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"id": idEvento}),
       );
 
+      _log("Código HTTP: ${respuesta.statusCode}");
       if (respuesta.statusCode == 200) {
         _log("✅ Evento $idEvento eliminado");
         return true;

@@ -54,7 +54,10 @@ class EventoRepository implements EventRepositoryContract {
           .toList();
       _cachedApprovedEvents = List<Event>.unmodifiable(events);
       _approvedEventsCachedAt = DateTime.now();
-      await _writePersistedApprovedEventsCache(events, _approvedEventsCachedAt!);
+      await _writePersistedApprovedEventsCache(
+        events,
+        _approvedEventsCachedAt!,
+      );
       return events;
     } catch (e) {
       return _cachedApprovedEvents ?? [];
@@ -141,15 +144,43 @@ class EventoRepository implements EventRepositoryContract {
 
   @override
   Future<bool> eliminarEvento(int idEvento) async {
-    final success = await _service.eliminarEvento(idEvento);
-    if (success) {
-      _cachedApprovedEvents = null;
-      _approvedEventsCachedAt = null;
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.remove(_approvedEventsCacheKey);
-      await preferences.remove(_approvedEventsCachedAtKey);
+    _logDelete("Repositorio: Iniciando eliminación del evento $idEvento");
+    try {
+      _logDelete("Repositorio: Llamando al servicio...");
+      final success = await _service.eliminarEvento(idEvento);
+
+      if (success) {
+        _logDelete("Repositorio: ✅ Servicio confirmó eliminación");
+        _logDelete("Repositorio: Limpiando cache de eventos aprobados...");
+        _cachedApprovedEvents = null;
+        _approvedEventsCachedAt = null;
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.remove(_approvedEventsCacheKey);
+        _logDelete("  - Cache en memoria limpiado");
+        await preferences.remove(_approvedEventsCachedAtKey);
+        _logDelete("  - Cache en SharedPreferences limpiado");
+        _logDelete(
+          "✅ Repositorio: Evento $idEvento eliminado y cache actualizado",
+        );
+      } else {
+        _logDeleteError("❌ Repositorio: El servicio devolvió false");
+      }
+      return success;
+    } catch (e, stacktrace) {
+      _logDeleteError("❌ Repositorio: Excepción - $e");
+      _logDeleteError("Stack: $stacktrace");
+      return false;
     }
-    return success;
+  }
+
+  void _logDelete(String message) {
+    final timestamp = DateTime.now().toIso8601String().split('T')[1];
+    print("[REPO DELETE] [$timestamp] $message");
+  }
+
+  void _logDeleteError(String message) {
+    final timestamp = DateTime.now().toIso8601String().split('T')[1];
+    print("[REPO DELETE ERROR] [$timestamp] $message");
   }
 
   Event _mapJsonToEvent(Map<String, dynamic> json) {

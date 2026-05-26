@@ -13,18 +13,23 @@ class AdminScreen extends StatefulWidget {
   State<AdminScreen> createState() => _AdminScreenState();
 }
 
-class _AdminScreenState extends State<AdminScreen> {
+class _AdminScreenState extends State<AdminScreen>
+    with SingleTickerProviderStateMixin {
   late final AdminViewModel _viewModel;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _viewModel = AdminViewModel();
+    _tabController = TabController(length: 2, vsync: this);
     _viewModel.loadPendingEvents();
+    _viewModel.loadPublishedEvents();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _viewModel.dispose();
     super.dispose();
   }
@@ -44,7 +49,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   child: Row(
                     children: [
                       const Text(
-                        'Eventos Pendientes',
+                        'Gestión de Eventos',
                         style: TextStyle(
                           color: AppColors.onSurface,
                           fontSize: 24,
@@ -54,66 +59,174 @@ class _AdminScreenState extends State<AdminScreen> {
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded),
-                        onPressed: _viewModel.loadPendingEvents,
+                        onPressed: () {
+                          _viewModel.loadPendingEvents();
+                          _viewModel.loadPublishedEvents();
+                        },
                         color: AppColors.primary,
                       ),
                     ],
                   ),
                 ),
-                if (_viewModel.isLoading)
-                  const Expanded(
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  )
-                else if (_viewModel.isEmpty)
-                  Expanded(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.check_circle_rounded,
-                            size: 64,
-                            color: AppColors.onSurfaceMuted,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'No hay eventos pendientes',
-                            style: TextStyle(
-                              color: AppColors.onSurfaceMuted,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _viewModel.pendingEvents.length,
-                      itemBuilder: (context, index) {
-                        final event = _viewModel.pendingEvents[index];
-                        return _EventCard(
-                          event: event,
-                          onTap: () => _showEventDetail(event),
-                          onApprove: () => _approveEvent(event),
-                          onReject: () => _rejectEvent(event),
-                        );
-                      },
-                    ),
+                TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(text: 'Por Aprobar'),
+                    Tab(text: 'Publicados'),
+                  ],
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: AppColors.onSurfaceMuted,
+                  indicatorColor: AppColors.primary,
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPendingEventsTab(),
+                      _buildPublishedEventsTab(),
+                    ],
                   ),
+                ),
               ],
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildPendingEventsTab() {
+    if (_viewModel.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+        ),
+      );
+    }
+
+    if (_viewModel.isPendingEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.check_circle_rounded,
+              size: 64,
+              color: AppColors.onSurfaceMuted,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No hay eventos pendientes',
+              style: TextStyle(color: AppColors.onSurfaceMuted, fontSize: 18),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _viewModel.pendingEvents.length,
+      itemBuilder: (context, index) {
+        final event = _viewModel.pendingEvents[index];
+        return _EventCard(
+          event: event,
+          onTap: () => _showEventDetail(event),
+          onApprove: () => _approveEvent(event),
+          onReject: () => _rejectEvent(event),
+          isPending: true,
+        );
+      },
+    );
+  }
+
+  Widget _buildPublishedEventsTab() {
+    if (_viewModel.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            onChanged: _viewModel.searchPublishedEvents,
+            style: const TextStyle(color: AppColors.onSurface, fontSize: 16),
+            decoration: InputDecoration(
+              hintText: 'Buscar por nombre, descripción o ubicación...',
+              hintStyle: const TextStyle(color: AppColors.onSurfaceMuted),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: AppColors.onSurfaceMuted,
+              ),
+              filled: true,
+              fillColor: const Color(0xFF171A1D),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(color: AppColors.surfaceElevated),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(color: AppColors.surfaceElevated),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.4,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _viewModel.isPublishedEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.event_outlined,
+                        size: 64,
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _viewModel.searchQuery.isEmpty
+                            ? 'No hay eventos publicados'
+                            : 'No se encontraron eventos',
+                        style: const TextStyle(
+                          color: AppColors.onSurfaceMuted,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _viewModel.publishedEvents.length,
+                  itemBuilder: (context, index) {
+                    final event = _viewModel.publishedEvents[index];
+                    return _EventCard(
+                      event: event,
+                      onTap: () => _showEventDetail(event),
+                      onApprove: null,
+                      onReject: () => _deletePublishedEvent(event),
+                      isPending: false,
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -183,6 +296,76 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _deletePublishedEvent(Event event) async {
+    final eventId = int.tryParse(event.id);
+    if (eventId == null) {
+      _logUI("❌ Error: El ID del evento no es válido: ${event.id}");
+      return;
+    }
+
+    _logUI("Usuario inicia eliminación del evento: ${event.title} (ID: $eventId)");
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Eliminar evento',
+          style: TextStyle(color: AppColors.onSurface),
+        ),
+        content: Text(
+          '¿Eliminar permanentemente "${event.title}"?',
+          style: const TextStyle(color: AppColors.onSurface),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _logUI("  - Usuario canceló la eliminación");
+              Navigator.pop(context, false);
+            },
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              _logUI("  - Usuario confirmó la eliminación");
+              Navigator.pop(context, true);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) {
+      _logUI("  - Operación cancelada por el usuario");
+      return;
+    }
+
+    _logUI("Enviando solicitud de eliminación al ViewModel...");
+    final deleted = await _viewModel.deleteEvent(eventId);
+
+    if (!mounted) return;
+
+    if (deleted) {
+      _logUI("✅ Evento eliminado exitosamente de la UI");
+    } else {
+      _logUI("❌ Error: El ViewModel reportó fallo en eliminación");
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(deleted ? 'Evento eliminado' : 'No se pudo eliminar'),
+        backgroundColor: deleted ? Colors.green.shade600 : Colors.red.shade600,
+      ),
+    );
+  }
+
+  void _logUI(String message) {
+    final timestamp = DateTime.now().toIso8601String().split('T')[1];
+    print("[ADMIN UI] [$timestamp] $message");
+  }
+
   void _showEventDetail(Event event) {
     showModalBottomSheet<void>(
       context: context,
@@ -195,50 +378,8 @@ class _AdminScreenState extends State<AdminScreen> {
         event: event,
         onDelete: () async {
           Navigator.pop(context);
-          await _deleteEvent(event);
+          await _deletePublishedEvent(event);
         },
-      ),
-    );
-  }
-
-  Future<void> _deleteEvent(Event event) async {
-    final eventId = int.tryParse(event.id);
-    if (eventId == null) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text(
-          'Eliminar evento',
-          style: TextStyle(color: AppColors.onSurface),
-        ),
-        content: Text(
-          'Eliminar "${event.title}" de forma permanente?',
-          style: const TextStyle(color: AppColors.onSurface),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted || confirmed != true) return;
-
-    final deleted = await _viewModel.deleteEvent(eventId);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(deleted ? 'Evento eliminado' : 'No se pudo eliminar'),
-        backgroundColor: deleted ? Colors.green.shade600 : Colors.red.shade600,
       ),
     );
   }
@@ -250,12 +391,14 @@ class _EventCard extends StatelessWidget {
     required this.onTap,
     required this.onApprove,
     required this.onReject,
+    required this.isPending,
   });
 
   final Event event;
   final VoidCallback onTap;
-  final VoidCallback onApprove;
+  final VoidCallback? onApprove;
   final VoidCallback onReject;
+  final bool isPending;
 
   @override
   Widget build(BuildContext context) {
@@ -267,106 +410,128 @@ class _EventCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (event.imageUrl != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      event.imageUrl!,
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-                      errorBuilder: (_, __, ___) => Container(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (event.imageUrl != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        event.imageUrl!,
                         width: 80,
                         height: 80,
+                        fit: BoxFit.cover,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 80,
+                          height: 80,
+                          color: AppColors.surfaceElevated,
+                          child: const Icon(
+                            Icons.image_not_supported_rounded,
+                            color: AppColors.onSurfaceMuted,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
                         color: AppColors.surfaceElevated,
-                        child: const Icon(
-                          Icons.image_not_supported_rounded,
-                          color: AppColors.onSurfaceMuted,
-                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.image_rounded,
+                        color: AppColors.onSurfaceMuted,
                       ),
                     ),
-                  )
-                else
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.image_rounded,
-                      color: AppColors.onSurfaceMuted,
-                    ),
-                  ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        event.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.onSurface,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        event.location,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.onSurfaceMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        event.priceLabel,
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.tonal(
-                    onPressed: onApprove,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.check_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text('Aprobar'),
+                        Text(
+                          event.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          event.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.onSurfaceMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          event.priceLabel,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (isPending)
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonal(
+                        onPressed: onApprove,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_rounded, size: 18),
+                            SizedBox(width: 8),
+                            Text('Aprobar'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.tonal(
+                        onPressed: onReject,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.close_rounded, size: 18),
+                            SizedBox(width: 8),
+                            Text('Descartar'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
                   child: FilledButton.tonal(
                     onPressed: onReject,
                     style: FilledButton.styleFrom(
@@ -376,18 +541,16 @@ class _EventCard extends StatelessWidget {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.close_rounded, size: 18),
+                        Icon(Icons.delete_outline_rounded, size: 18),
                         SizedBox(width: 8),
-                        Text('Descartar'),
+                        Text('Eliminar'),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
