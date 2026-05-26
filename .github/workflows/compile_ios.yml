@@ -1,31 +1,54 @@
-name: Compile iOS Simulator Build
+name: Flutter iOS Build Test
 
 on:
-  workflow_dispatch: {} 
+  push:
+    branches: [ "main", "develop" ] # Cambia esto por tu rama principal
+  pull_request:
+    branches: [ "main" ]
+
 jobs:
   build_ios:
+    # Es obligatorio usar macOS para compilar aplicaciones de iOS
     runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup Flutter
+    steps:
+      # 1. Descargar el código del repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configurar Java (requerido a veces por herramientas internas o plugins)
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 3. Configurar el entorno de Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          # Puedes especificar la versión exacta si lo prefieres, ej: flutter-version: '3.19.0'
 
-      - name: Install dependencies
+      # 4. Instalar las dependencias de Flutter
+      - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Build for Simulator
-        run: flutter build ios --simulator --no-codesign
-
-      - name: Zip Build
+      # 5. Instalar las dependencias de CocoaPods (Crucial para iOS)
+      - name: Install CocoaPods
         run: |
-          cd build/ios/iphonesimulator
-          zip -r ios_simulator_build.zip Runner.app
+          cd ios
+          pod install
+          cd ..
 
-      - name: Upload Artifact
+      # 6. Compilar la aplicación para iOS
+      # Usamos --no-codesign para saltarnos el bloqueo de certificados de Apple por ahora
+      - name: Build iOS IPA
+        run: flutter build ios --release --no-codesign
+
+      # 7. (Opcional) Subir el resultado como artefacto de GitHub
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-simulator-app
-          path: build/ios/iphonesimulator/ios_simulator_build.zip
+          name: ios-build
+          path: build/ios/iphoneos
