@@ -1,13 +1,14 @@
 name: Flutter iOS Simulator Build for Appetize
 
 on:
-    
   workflow_dispatch:
-
   push:
-    branches: [ "main", "develop" ]
+    branches:
+      - main
+      - develop
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   build_ios_simulator:
@@ -36,12 +37,10 @@ jobs:
           cd ..
 
       # 5. COMPILAR PARA SIMULADOR (Clave para Appetize)
-      # Se usa '--simulator' para compilar la arquitectura x86_64/ARM64 de simulación
       - name: Build for iOS Simulator
         run: flutter build ios --simulator --debug
 
       # 6. EMPAQUETAR EL .APP EN UN .ZIP (Requisito de Appetize)
-      # Appetize requiere que la carpeta 'Runner.app' esté dentro de un archivo zip
       - name: Zip Build for Appetize
         run: |
           cd build/ios/iphonesimulator
