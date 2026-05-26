@@ -1,6 +1,9 @@
 name: Flutter iOS Simulator Build for Appetize
 
 on:
+    
+  workflow_dispatch:
+
   push:
     branches: [ "main", "develop" ]
   pull_request:
