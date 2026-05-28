@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../presentation/events/events_catalog_view_model.dart';
+import '../../../domain/entities/event.dart';
 import '../../../widgets/events/event_detail_drawer.dart';
 import '../../../widgets/search/event_filters_drawer.dart';
 import '../../../widgets/search/event_search_bar.dart';
@@ -19,15 +20,17 @@ class HomeScreen extends StatefulWidget {
   final bool isAdminUnlocked;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   static const LatLng _initialPosition = LatLng(-25.2637, -57.5759);
   static const double _navBarClearance = 88;
 
   late final HomeViewModel _viewModel;
   late final TextEditingController _searchController;
+  GoogleMapController? _mapController;
+  Event? _pendingFocusEvent;
 
   @override
   void initState() {
@@ -38,9 +41,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _mapController?.dispose();
     _searchController.dispose();
     _viewModel.dispose();
     super.dispose();
+  }
+
+  Future<void> focusEvent(Event event) async {
+    await _viewModel.selectEvent(event);
+    if (_mapController == null) {
+      _pendingFocusEvent = event;
+      return;
+    }
+    await _animateToEvent(event);
+  }
+
+  Future<void> _animateToEvent(Event event) async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(event.latitude, event.longitude),
+          zoom: 16,
+        ),
+      ),
+    );
   }
 
   @override
@@ -69,6 +96,14 @@ class _HomeScreenState extends State<HomeScreen> {
               style: _viewModel.mapStyle,
               markers: _viewModel.markers,
               mapType: MapType.normal,
+              onMapCreated: (controller) async {
+                _mapController = controller;
+                final pending = _pendingFocusEvent;
+                if (pending != null) {
+                  _pendingFocusEvent = null;
+                  await _animateToEvent(pending);
+                }
+              },
               onCameraMove: (position) =>
                   _viewModel.updateCameraZoom(position.zoom),
               myLocationButtonEnabled: false,
@@ -151,7 +186,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   onDelete: widget.isAdminUnlocked
                       ? () => _deleteSelectedEvent(context)
                       : null,
-                  bottomInset: _navBarClearance,
+                  bottomInset:
+                      _navBarClearance + MediaQuery.paddingOf(context).bottom,
                 ),
               ),
             ],

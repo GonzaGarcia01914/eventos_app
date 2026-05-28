@@ -1263,7 +1263,7 @@ class _GuaraniPriceFormatter extends TextInputFormatter {
       final remaining = value.length - index;
       buffer.write(value[index]);
       if (remaining > 1 && remaining % 3 == 1) {
-        buffer.write(',');
+        buffer.write('.');
       }
     }
     return buffer.toString();

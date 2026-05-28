@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/utils/guarani_formatter.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/entities/event_type.dart';
 import '../../domain/repositories/event_repository_contract.dart';
@@ -186,7 +187,7 @@ class EventoRepository implements EventRepositoryContract {
   Event _mapJsonToEvent(Map<String, dynamic> json) {
     final nombre = json['nombre'] as String? ?? 'Sin nombre';
     final descripcion = json['descripcion'] as String? ?? '';
-    final precio = (json['precio'] as num?)?.toDouble() ?? 0.0;
+    final precio = _parsePrecio(json['precio']);
     final categorias = _parseCategories(json['categorias']);
     final ubicacionMaps = json['ubicacion_maps'] as String? ?? '';
     final parsedLocation = _parseLocation(ubicacionMaps, json);
@@ -212,9 +213,8 @@ class EventoRepository implements EventRepositoryContract {
         )
         .toList();
 
-    final priceLabel = precio == 0
-        ? 'Gratis'
-        : '₲ ${_formatCurrency(precio.toInt())}';
+    final priceAmount = precio.round();
+    final priceLabel = GuaraniFormatter.formatInWords(priceAmount);
 
     DateTime startAt;
     try {
@@ -230,7 +230,7 @@ class EventoRepository implements EventRepositoryContract {
       location: parsedLocation.label,
       startAt: startAt,
       priceLabel: priceLabel,
-      priceAmount: precio.toInt(),
+      priceAmount: priceAmount,
       type: type,
       types: types.isEmpty ? [type] : types,
       latitude: parsedLocation.latitude,
@@ -341,17 +341,15 @@ class EventoRepository implements EventRepositoryContract {
     );
   }
 
-  String _formatCurrency(int value) {
-    final parts = <String>[];
-    var num = value;
-    while (num > 0) {
-      parts.insert(
-        0,
-        (num % 1000).toString().padLeft(parts.isEmpty ? 1 : 3, '0'),
-      );
-      num ~/= 1000;
+  int _parsePrecio(Object? value) {
+    if (value == null) return 0;
+    if (value is num) return value.round();
+    if (value is String) {
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.isEmpty) return 0;
+      return int.parse(digits);
     }
-    return parts.join(',');
+    return 0;
   }
 }
 

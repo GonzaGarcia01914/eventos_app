@@ -1,3 +1,4 @@
+import '../../core/utils/guarani_formatter.dart';
 import 'event_type.dart';
 
 /// Entidad de dominio: evento.
@@ -36,6 +37,9 @@ class Event {
 
   bool get isFree => priceAmount == 0;
   bool get hasVideo => videoUrl != null && videoUrl!.isNotEmpty;
+
+  /// Precio legible en guaraníes (ej. «Veinticinco mil guaraníes»).
+  String get displayPrice => GuaraniFormatter.formatInWords(priceAmount);
   List<EventType> get eventTypes => types.isEmpty ? [type] : types;
 
   Event copyWith({

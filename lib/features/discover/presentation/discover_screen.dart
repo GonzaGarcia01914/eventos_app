@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/event.dart';
 import '../../../presentation/events/events_catalog_view_model.dart';
 import '../../../widgets/discover/story_event_overlay.dart';
 import '../../../widgets/discover/story_media_view.dart';
@@ -12,10 +13,12 @@ class DiscoverScreen extends StatefulWidget {
     super.key,
     required this.eventsCatalog,
     required this.isActive,
+    this.onEventInfoTap,
   });
 
   final EventsCatalogViewModel eventsCatalog;
   final bool isActive;
+  final void Function(Event event)? onEventInfoTap;
 
   @override
   State<DiscoverScreen> createState() => DiscoverScreenState();
@@ -110,6 +113,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               StoryEventOverlay(
                 event: events[_viewModel.currentIndex],
                 bottomInset: _navBarClearance + bottomPadding,
+                onInfoTap: () =>
+                    widget.onEventInfoTap?.call(events[_viewModel.currentIndex]),
               ),
               Positioned(
                 top: topPadding + 8,
@@ -129,7 +134,10 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                       onTap: _viewModel.goToPrevious,
                     ),
                   ),
-                  const Expanded(flex: 2, child: SizedBox()),
+                  const Expanded(
+                    flex: 2,
+                    child: IgnorePointer(child: SizedBox()),
+                  ),
                   Expanded(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,

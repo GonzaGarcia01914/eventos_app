@@ -28,7 +28,12 @@ class EventDetailDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat("EEEE d MMM · HH:mm", 'es').format(event.startAt);
+    final dateLabel = DateFormat(
+      "EEEE d MMM · HH:mm",
+      'es',
+    ).format(event.startAt);
+
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.62;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
@@ -38,80 +43,102 @@ class EventDetailDrawer extends StatelessWidget {
         shadowColor: AppColors.navBarShadow,
         borderRadius: BorderRadius.circular(28),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Stack(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.zero,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _EventImage(imageUrl: event.imageUrl),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Row(
+                Stack(
+                  children: [
+                    _EventImage(imageUrl: event.imageUrl),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Row(
+                        children: [
+                          _CircleIconButton(
+                            icon: isFavorite
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            iconColor: isFavorite
+                                ? AppColors.primary
+                                : AppColors.onSurface,
+                            onPressed:
+                                isTogglingFavorite ? null : onFavoriteToggle,
+                            isLoading: isTogglingFavorite,
+                          ),
+                          const SizedBox(width: 8),
+                          _CircleIconButton(
+                            icon: Icons.close_rounded,
+                            onPressed: onClose,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _CircleIconButton(
-                        icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-                        iconColor: isFavorite ? AppColors.primary : AppColors.onSurface,
-                        onPressed: isTogglingFavorite ? null : onFavoriteToggle,
-                        isLoading: isTogglingFavorite,
+                      Text(
+                        event.title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onSurface,
+                          height: 1.25,
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      _CircleIconButton(
-                        icon: Icons.close_rounded,
-                        onPressed: onClose,
+                      const SizedBox(height: 12),
+                      _PriceChip(label: event.displayPrice),
+                      const SizedBox(height: 16),
+                      _InfoRow(
+                        icon: Icons.location_on_rounded,
+                        label: event.location,
+                        onTap: () => _openMap(context),
                       ),
+                      const SizedBox(height: 10),
+                      _InfoRow(
+                        icon: Icons.calendar_month_rounded,
+                        label: dateLabel,
+                      ),
+                      if (event.description.trim().isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        Text(
+                          event.description.trim(),
+                          style: const TextStyle(
+                            color: AppColors.onSurfaceMuted,
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                      if (onDelete != null) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: onDelete,
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: const Text('Eliminar evento'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.redAccent,
+                              side: const BorderSide(color: Colors.redAccent),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onSurface,
-                      height: 1.25,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _PriceChip(label: event.priceLabel),
-                  const SizedBox(height: 16),
-                  _InfoRow(
-                    icon: Icons.location_on_rounded,
-                    label: event.location,
-                    onTap: () => _openMap(context),
-                  ),
-                  const SizedBox(height: 10),
-                  _InfoRow(
-                    icon: Icons.calendar_month_rounded,
-                    label: dateLabel,
-                  ),
-                  if (onDelete != null) ...[
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: onDelete,
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        label: const Text('Eliminar evento'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -198,9 +225,9 @@ class EventDetailDrawer extends StatelessWidget {
       mode: LaunchMode.externalApplication,
     );
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo abrir el mapa')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No se pudo abrir el mapa')));
     }
   }
 }
@@ -240,7 +267,10 @@ class _EventImage extends StatelessWidget {
         height: height,
         color: AppColors.surfaceElevated,
         child: const Center(
-          child: Icon(Icons.broken_image_outlined, color: AppColors.onSurfaceMuted),
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: AppColors.onSurfaceMuted,
+          ),
         ),
       ),
       loadingBuilder: (context, child, progress) {

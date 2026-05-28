@@ -6,6 +6,7 @@ import '../../features/discover/presentation/discover_screen.dart';
 import '../../features/favourites/presentation/favourites_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/perfil/presentation/perfil_screen.dart';
+import '../../domain/entities/event.dart';
 import '../events/events_catalog_view_model.dart';
 import '../../widgets/navigation/app_bottom_nav_bar.dart';
 import 'shell_view_model.dart';
@@ -21,6 +22,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   late final ShellViewModel _viewModel;
   late final EventsCatalogViewModel _eventsCatalog;
   final _favouritesKey = GlobalKey<FavouritesScreenState>();
+  final _homeKey = GlobalKey<HomeScreenState>();
   bool _isAdminUnlocked = false;
 
   @override
@@ -36,6 +38,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
     if (tab == AppTab.favourites) {
       _favouritesKey.currentState?.reload();
     }
+  }
+
+  void _openEventFromDiscover(Event event) {
+    _viewModel.selectTab(AppTab.home);
+    _homeKey.currentState?.focusEvent(event);
   }
 
   void _unlockAdmin() {
@@ -63,12 +70,14 @@ class _MainShellScreenState extends State<MainShellScreen> {
             index: _viewModel.currentIndex,
             children: [
               HomeScreen(
+                key: _homeKey,
                 eventsCatalog: _eventsCatalog,
                 isAdminUnlocked: _isAdminUnlocked,
               ),
               DiscoverScreen(
                 eventsCatalog: _eventsCatalog,
                 isActive: isDiscoverActive,
+                onEventInfoTap: _openEventFromDiscover,
               ),
               FavouritesScreen(key: _favouritesKey),
               PerfilScreen(onAdminUnlocked: _unlockAdmin),

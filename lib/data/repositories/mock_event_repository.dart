@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/utils/guarani_formatter.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/entities/event_type.dart';
 import '../../domain/repositories/event_repository_contract.dart';
@@ -114,7 +115,7 @@ class MockEventRepository implements EventRepositoryContract {
           : null,
       location: location,
       startAt: startAt,
-      priceLabel: price.label,
+      priceLabel: GuaraniFormatter.formatInWords(price.amount),
       priceAmount: price.amount,
       type: template.type,
       types: types,
