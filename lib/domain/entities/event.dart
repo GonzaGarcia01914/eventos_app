@@ -38,8 +38,8 @@ class Event {
   bool get isFree => priceAmount == 0;
   bool get hasVideo => videoUrl != null && videoUrl!.isNotEmpty;
 
-  /// Precio legible en guaraníes (ej. «Veinticinco mil guaraníes»).
-  String get displayPrice => GuaraniFormatter.formatInWords(priceAmount);
+  /// Precio legible en guaraníes (ej. «₲ 25.000»).
+  String get displayPrice => GuaraniFormatter.format(priceAmount);
   List<EventType> get eventTypes => types.isEmpty ? [type] : types;
 
   Event copyWith({
@@ -77,21 +77,21 @@ class Event {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'description': description,
-        'imageUrl': imageUrl,
-        'videoUrl': videoUrl,
-        'location': location,
-        'startAt': startAt.toIso8601String(),
-        'priceLabel': priceLabel,
-        'priceAmount': priceAmount,
-        'type': type.name,
-        'types': eventTypes.map((value) => value.name).toList(),
-        'latitude': latitude,
-        'longitude': longitude,
-        'timezone': timezone,
-      };
+    'id': id,
+    'title': title,
+    'description': description,
+    'imageUrl': imageUrl,
+    'videoUrl': videoUrl,
+    'location': location,
+    'startAt': startAt.toIso8601String(),
+    'priceLabel': priceLabel,
+    'priceAmount': priceAmount,
+    'type': type.name,
+    'types': eventTypes.map((value) => value.name).toList(),
+    'latitude': latitude,
+    'longitude': longitude,
+    'timezone': timezone,
+  };
 
   factory Event.fromJson(Map<String, dynamic> json) {
     final typeName = json['type'] as String?;

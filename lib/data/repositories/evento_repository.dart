@@ -214,7 +214,7 @@ class EventoRepository implements EventRepositoryContract {
         .toList();
 
     final priceAmount = precio.round();
-    final priceLabel = GuaraniFormatter.formatInWords(priceAmount);
+    final priceLabel = GuaraniFormatter.format(priceAmount);
 
     DateTime startAt;
     try {
